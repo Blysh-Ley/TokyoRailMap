@@ -44,8 +44,8 @@ assert.match(source, /highlightRenderer\.applyLineNameLabelFilter/);
 assert.match(source, /dirPreviewActive\) return dirPreviewLineIds/);
 assert.match(source, /buildTripPreviewLineNameLabelsData/);
 assert.match(source, /mapEngine\.setSourceData\?\.\('line-name-labels-source', nextData\)/);
-assert.match(source, /buildLineNameLabelCandidates\(getLineNameLabelPaths\(\)/);
-assert.match(source, /lineIds: getLineNameLabelLineIdsForCurrentHighlight\(\)/);
+assert.match(source, /buildLineNameLabelCandidates\(paths, options\)/);
+assert.match(source, /const lineIds = getLineNameLabelLineIdsForCurrentHighlight\(\)/);
 assert.match(source, /tripPreviewLineNameLabelsData = buildTripPreviewLineNameLabelsData\(\{ built \}\)/);
 assert.match(source, /const lineIdCandidates = getLineNameLabelLineIdCandidates\(feature\)/);
 assert.match(source, /const labelId = getLineNameLabelSourceLineId\(feature\)/);
@@ -70,43 +70,97 @@ assert.match(source, /previewSource: SELECTION_COMPANY_TRIP_PREVIEW_SOURCE/);
 {
     const start = source.indexOf('const syncLineNameLabelDataForCurrentState =');
     const end = source.indexOf('const buildLineNameLabelFilter =', start);
-    const frames = [];
+    const layoutStart = source.indexOf('const requestLineNameLabelLayout =');
+    const layoutEnd = source.indexOf('const lineNameLabelLayoutObserver =', layoutStart);
+    const frames = new Map();
+    const timers = new Map();
     const submissions = [];
-    let revision = 1;
-    const candidates = () => ({ type: 'FeatureCollection', features: [{ id: revision }] });
-    const runtime = new Function('requestAnimationFrame', 'mapEngine', 'buildLineNameLabelCandidates', `
-        const cancelAnimationFrame = () => {};
+    let nextId = 0;
+    let builds = 0;
+    let projections = 0;
+    let pending = true;
+    let paths = { revision: 1 };
+    let layoutRevision = 1;
+    let lineIds = null;
+    const candidates = (_paths, options) => {
+        builds += 1;
+        return { type: 'FeatureCollection', features: [{ id: _paths.revision, layoutRevision, moving: options.previousOnly }] };
+    };
+    const runtime = new Function('requestAnimationFrame', 'setTimeout', 'clearTimeout', 'mapEngine',
+        'buildLineNameLabelCandidates', 'projectLineNameLabelPaths', 'getPaths', 'getLayout', 'getLineIds', `
         let lineNameLabelsFrame = null;
         let lineNameLabelsDataSignature = '';
-        const movingLineNameLabels = null;
+        let movingLineNameLabels = null;
         let lineNameLabelLayout = null;
+        let lineNameLabelLayoutTimer = null;
+        let lineNameLabelInput = null;
+        let lineNameLabelProjectionVersion = 0;
+        const lineNameLabelProjectedPaths = new WeakMap();
         const lineNameLabelWidths = new Map();
         const lineNameLabelMeasureContext = {};
-        const readCurrentLineNameLabelLayout = () => ({ viewport: {}, obstacles: [] });
-        const getLineNameLabelPaths = () => ({});
-        const getLineNameLabelLineIdsForCurrentHighlight = () => null;
+        const readCurrentLineNameLabelLayout = getLayout;
+        const getLineNameLabelPaths = getPaths;
+        const getLineNameLabelLineIdsForCurrentHighlight = getLineIds;
         const buildOffsetPolylinePixelsWithMiter = () => [];
+        const map = { unproject() {} };
+        const STATION_LABELS_SOURCE_ID = 'station-labels-source';
+        ${source.slice(layoutStart, layoutEnd)}
         ${source.slice(start, end)}
-        return { schedule: scheduleLineNameLabelPlacement };
-    `)(callback => { frames.push(callback); return frames.length; }, {
-        hasLayer: () => true,
-        getCanvas: () => ({ clientWidth: 500, clientHeight: 400 }),
-        queryRenderedFeatures: () => [],
-        getZoom: () => 12,
-        setSourceData: (_id, data) => { submissions.push(data); return {}; }
-    }, candidates);
-    runtime.schedule();
-    runtime.schedule();
-    assert.equal(frames.length, 1, '同一轮多次请求只排入一帧');
-    frames.shift()();
+        return { schedule: scheduleLineNameLabelPlacement, move: () => {
+            movingLineNameLabels = new Map(); lineNameLabelProjectionVersion += 1;
+        }, stop: () => { movingLineNameLabels = null; } };
+    `)(callback => { const id = ++nextId; frames.set(id, callback); return id; },
+        callback => { const id = ++nextId; timers.set(id, callback); return id; }, id => timers.delete(id), {
+            hasLayer: () => true, getSource: () => ({}), isSourceLoaded: () => !pending,
+            isSymbolPlacementPending: () => pending,
+            getCanvas: () => ({ clientWidth: 500, clientHeight: 400 }),
+            queryRenderedFeatures: () => [], getZoom: () => 12,
+            setSourceData: (_id, data) => { submissions.push(data); return true; }
+        }, candidates, () => { projections += 1; return []; }, () => paths,
+        () => ({ signature: String(layoutRevision), viewport: {}, obstacles: [] }), () => lineIds);
+    const flush = queue => { const [id, callback] = queue.entries().next().value; queue.delete(id); callback(); };
+    const settle = () => { flush(timers); while (frames.size) flush(frames); };
+    runtime.schedule(); runtime.schedule();
+    assert.equal(timers.size, 1, '清除预览、选择变化和面板变化共用一个精排计时器');
+    assert.equal(frames.size, 0, '稳定状态不立即抢占站名恢复的下一帧');
+    settle();
+    assert.equal(builds, 0, '站名源或原生符号尚未稳定时等待');
+    assert.equal(timers.size, 1);
+    pending = false;
+    settle();
+    assert.equal(builds, 1);
     assert.equal(submissions.length, 1);
+    runtime.schedule(); settle();
+    assert.equal(builds, 1, '同样路径、相机、线路范围和实际布局不再重算候选');
+    layoutRevision += 1;
+    runtime.schedule(); settle();
+    assert.equal(builds, 2, '新站名或面板布局仍触发重新避让');
+    assert.equal(projections, 1, '同一视野的布局变化复用投影');
+    lineIds = new Set(['B']);
+    runtime.schedule(); settle();
+    assert.equal(projections, 2, '线路范围变化重新准备对应投影');
+    paths = { revision: 2 }; runtime.schedule();
+    paths = { revision: 3 }; runtime.schedule();
+    settle();
+    assert.equal(submissions.at(-1).features[0].id, 3, '快速切站或清除预览后只处理最后的路径');
+    const buildsBeforeSwitch = builds;
+    paths = { revision: 4 }; runtime.schedule();
+    flush(timers); flush(frames);
+    assert.equal(builds, buildsBeforeSwitch, '首次投影单独让出一帧，不在同一帧继续精排');
+    paths = { revision: 5 };
+    while (frames.size) flush(frames);
+    assert.equal(builds, buildsBeforeSwitch + 1);
+    assert.equal(submissions.at(-1).features[0].id, 5, '投影准备后切换站点不能提交旧候选');
+    const projectionsBeforeMove = projections;
+    runtime.move(); pending = true;
     runtime.schedule();
-    frames.shift()();
-    assert.equal(submissions.length, 1, '候选结果相同不能重复提交 GeoJSON');
-    revision += 1;
-    runtime.schedule();
-    frames.shift()();
-    assert.equal(submissions.length, 2, '候选结果变化后仍正常提交');
+    assert.equal(frames.size, 1, '移动中继续逐帧跟随旧锚点');
+    flush(frames);
+    assert.equal(submissions.at(-1).features[0].moving, true);
+    runtime.stop(); pending = false;
+    runtime.schedule(); settle();
+    assert.equal(submissions.at(-1).features[0].moving, false, '停止后仍完成全部候选比较');
+    assert.equal(projections, projectionsBeforeMove + 1, '相机变化后不复用过期投影');
 }
 
 console.log('app line selection style smoke ok');

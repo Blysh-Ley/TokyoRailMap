@@ -263,20 +263,9 @@ const visibleAreaCenter = viewport => {
         : { x: (viewport.minX + viewport.maxX) / 2, y: (viewport.minY + viewport.maxY) / 2 };
 };
 
-export const buildLineNameLabelCandidates = (paths, {
-    project, unproject, width, height, zoom, measureText, buildFixedOffset,
-    lineIds = null, previous = new Map(), labelScale = 1, previousOnly = false,
-    obstacles = [], viewport = { minX: 0, minY: 0, maxX: width, maxY: height }
-}) => {
-    const fontSize = getLineNameLabelTextSizeForZoom(zoom) * labelScale;
-    const byLine = new Map();
-    const previousCandidates = new Map();
-    const candidatePaths = new WeakMap();
-    const coveredRatio = createObstacleLookup(obstacles, fontSize * 8);
-    const viewWidth = viewport.maxX - viewport.minX;
-    const viewHeight = viewport.maxY - viewport.minY;
-    const viewCenter = visibleAreaCenter(viewport);
-    if (viewWidth <= 8 || viewHeight <= 8) return { type: 'FeatureCollection', features: [] };
+// 投影只取决于相机、路径及线路范围；站名和面板变化可复用同一份折线。
+export const projectLineNameLabelPaths = (paths, { project, zoom, buildFixedOffset,
+    lineIds = null, previous = new Map(), previousOnly = false }) => {
     if (paths && !continuousPartsCache.has(paths)) continuousPartsCache.set(paths, continuousPathParts(paths.features || []));
     const renderedPaths = [];
     for (const parts of (paths && continuousPartsCache.get(paths)) || []) {
@@ -296,6 +285,24 @@ export const buildLineNameLabelCandidates = (paths, {
             } else current.pixels.push(...pixels.slice(1));
         }
     }
+    return renderedPaths;
+};
+
+export const buildLineNameLabelCandidates = (paths, {
+    project, unproject, width, height, zoom, measureText, buildFixedOffset,
+    lineIds = null, previous = new Map(), labelScale = 1, previousOnly = false,
+    obstacles = [], viewport = { minX: 0, minY: 0, maxX: width, maxY: height }, projectedPaths = null
+}) => {
+    const fontSize = getLineNameLabelTextSizeForZoom(zoom) * labelScale;
+    const byLine = new Map();
+    const previousCandidates = new Map();
+    const candidatePaths = new WeakMap();
+    const coveredRatio = createObstacleLookup(obstacles, fontSize * 8);
+    const viewWidth = viewport.maxX - viewport.minX;
+    const viewHeight = viewport.maxY - viewport.minY;
+    const viewCenter = visibleAreaCenter(viewport);
+    if (viewWidth <= 8 || viewHeight <= 8) return { type: 'FeatureCollection', features: [] };
+    const renderedPaths = projectedPaths || projectLineNameLabelPaths(paths, { project, zoom, buildFixedOffset, lineIds, previous, previousOnly });
     for (const feature of renderedPaths) {
         const props = feature.properties;
         const previousLabel = previous.get(props.id);

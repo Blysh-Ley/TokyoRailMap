@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { buildLineNameLabelGeoJSON, buildLineNameLabelCandidates, selectLineNameLabelCandidates,
-    getLineNameLabelTextSizeForZoom, getLineNameLabelBounds } from '../src/domain/lineNameLabels.js';
+    getLineNameLabelTextSizeForZoom, getLineNameLabelBounds, projectLineNameLabelPaths } from '../src/domain/lineNameLabels.js';
 import { addLineNameLabelsLayer } from '../src/map/layers.js';
 import { buildOffsetPolylinePixelsWithMiter } from '../src/map/offset.js';
 import { createBasemapController } from '../src/services/mapEngine.js';
@@ -167,6 +167,28 @@ const movedFontSize = getLineNameLabelTextSizeForZoom(13);
 const movedGap = Math.abs(movedPoint.x - 300);
 assert.ok(movedGap >= moved.properties.label_height / 2 + getHighlightLineWidthAtZoom(13) / 2
     && movedGap < movedFontSize * 1.2, '缩放后文字与笔画保持留白，同时仍贴近线路，不随地图缩放翻倍');
+
+// 复用投影只省去几何重建，站名和面板变化仍要重新比较候选。
+for (const [testPaths, testOptions] of [
+    [paths, options],
+    [qualityPaths, { ...options, obstacles: [{ minX: 100, maxX: 400, minY: 182, maxY: 218 }] }],
+    [qualityPaths, { ...options, viewport: floatingViewport }],
+    [paths, { ...options, lineIds: new Set(['B']) }],
+    [paths, { ...options, previous: new Map([['A', choice.properties]]), previousOnly: true }],
+    [qualityPaths, { ...options, labelScale: 2 }]
+]) {
+    const projectedPaths = projectLineNameLabelPaths(testPaths, testOptions);
+    let projectionCalls = 0;
+    const reused = buildLineNameLabelCandidates(testPaths, { ...testOptions, projectedPaths,
+        project: () => { projectionCalls += 1; throw new Error('复用投影时不应重新投影线路'); } });
+    assert.deepEqual(reused, buildLineNameLabelCandidates(testPaths, testOptions), '复用投影不改变候选、沿线偏移或避让结果');
+    assert.equal(projectionCalls, 0);
+}
+const reusableProjection = projectLineNameLabelPaths(qualityPaths, options);
+assert.deepEqual(buildLineNameLabelCandidates(qualityPaths, { ...options, projectedPaths: reusableProjection,
+    obstacles: [{ minX: 190, maxX: 310, minY: 204, maxY: 225 }], previous: new Map([['通用测试', originalChoice.properties]]) }), blocked,
+    '站名补出后使用相同投影仍会迁移被遮挡的线路名');
+
 const exportScaled = buildLineNameLabelCandidates(qualityPaths, { ...options, labelScale: 2 });
 assert.ok(exportScaled.features.every(feature => Math.abs(midpoint(feature)[1] - 200) < feature.properties.label_height),
     '导出缩放后仍按文字和线宽保持贴线间距，不恢复远侧旁置');

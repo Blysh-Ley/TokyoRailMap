@@ -61,7 +61,7 @@ import { extractShortestLoopSegmentByIndex, isLoopDirection } from './lib/trip-p
 import { buildLineHighlightVirtualTripPayloads } from './domain/lineHighlightVirtualTripBuilder.js';
 import { buildAlternateLineMembership } from './domain/alternateLineMembership.js';
 import { buildLineHighlightLabelItems } from './domain/lineHighlightLabels.js';
-import { buildLineNameLabelGeoJSON, buildLineNameLabelCandidates } from './domain/lineNameLabels.js';
+import { buildLineNameLabelGeoJSON, buildLineNameLabelCandidates, projectLineNameLabelPaths } from './domain/lineNameLabels.js';
 import { getFocusedStationLabelPriority, inheritMergedStationLabelTerminalState } from './domain/stationLabelDisplay.js';
 import { previewBranchesForLine, prewarmThroughServiceBranchAnalysis, loadBranchAnalysisTimetableForLine } from './map/analyze_branch.js';
 import { createLineIconElement, getResolvedRouteIconMeta } from './lib/line-icons.js';
@@ -535,6 +535,9 @@ const initMapApp = async () => {
     let generatedLineNameLabelsData = null;
     let lineNameLabelsFrame = null;
     let lineNameLabelsDataSignature = '';
+    let lineNameLabelInput = null;
+    let lineNameLabelProjectionVersion = 0;
+    const lineNameLabelProjectedPaths = new WeakMap();
     let movingLineNameLabels = null;
     let lineNameLabelLayout = null;
     let lineNameLabelLayoutTimer = null;
@@ -543,8 +546,8 @@ const initMapApp = async () => {
         clearTimeout(lineNameLabelLayoutTimer);
         lineNameLabelLayoutTimer = setTimeout(() => {
             lineNameLabelLayoutTimer = null;
-            if (movingLineNameLabels === null && readCurrentLineNameLabelLayout().signature !== lineNameLabelLayout?.signature) {
-                scheduleLineNameLabelPlacement();
+            if (movingLineNameLabels === null && lineNameLabelsFrame === null) {
+                lineNameLabelsFrame = requestAnimationFrame(syncLineNameLabelDataForCurrentState);
             }
         }, 180);
     };
@@ -2311,17 +2314,27 @@ const initMapApp = async () => {
     const syncLineNameLabelDataForCurrentState = () => {
         lineNameLabelsFrame = null;
         if (!mapEngine.hasLayer?.('line-name-labels-layer')) return;
+        const moving = movingLineNameLabels !== null;
+        // 站名恢复和原生放置期间先让出主线程，稳定后按最后状态统一精排。
+        if (!moving && (mapEngine.isSymbolPlacementPending()
+            || (mapEngine.getSource(STATION_LABELS_SOURCE_ID) && !mapEngine.isSourceLoaded(STATION_LABELS_SOURCE_ID)))) {
+            requestLineNameLabelLayout();
+            return;
+        }
         const canvas = mapEngine.getCanvas();
-        const previous = movingLineNameLabels || readVisibleLineNameLabels();
-        // 移动中只重投影原锚点；站名和面板布局稳定后再统一比较位置质量。
-        if (movingLineNameLabels === null) lineNameLabelLayout = readCurrentLineNameLabelLayout();
-        const nextData = buildLineNameLabelCandidates(getLineNameLabelPaths(), {
+        const paths = getLineNameLabelPaths();
+        const lineIds = getLineNameLabelLineIdsForCurrentHighlight();
+        const scopeKey = lineIds ? JSON.stringify([...lineIds].sort()) : '';
+        if (!moving) lineNameLabelLayout = readCurrentLineNameLabelLayout();
+        const inputKey = `${lineNameLabelProjectionVersion}:${moving}:${scopeKey}:${lineNameLabelLayout?.signature}`;
+        if (lineNameLabelInput?.paths === paths && lineNameLabelInput.key === inputKey) return;
+        const options = {
             project: coordinate => mapEngine.project(coordinate),
             unproject: point => map.unproject(point),
             width: canvas.clientWidth, height: canvas.clientHeight, zoom: mapEngine.getZoom(),
-            lineIds: getLineNameLabelLineIdsForCurrentHighlight(), previous, previousOnly: movingLineNameLabels !== null,
+            lineIds, previous: movingLineNameLabels || readVisibleLineNameLabels(), previousOnly: moving,
             ...(lineNameLabelLayout ? { viewport: lineNameLabelLayout.viewport,
-                obstacles: movingLineNameLabels === null ? lineNameLabelLayout.obstacles : [] } : {}),
+                obstacles: moving ? [] : lineNameLabelLayout.obstacles } : {}),
             buildFixedOffset: buildOffsetPolylinePixelsWithMiter,
             measureText: (text, size) => {
                 if (!lineNameLabelWidths.has(text)) {
@@ -2330,11 +2343,28 @@ const initMapApp = async () => {
                 }
                 return lineNameLabelWidths.get(text) * size / 100;
             }
-        });
+        };
+        if (!moving) {
+            let projected = lineNameLabelProjectedPaths.get(paths);
+            if (projected?.version !== lineNameLabelProjectionVersion || projected.scopeKey !== scopeKey) {
+                projected = { version: lineNameLabelProjectionVersion, scopeKey,
+                    data: projectLineNameLabelPaths(paths, options) };
+                lineNameLabelProjectedPaths.set(paths, projected);
+                // 首次投影和候选比较分到相邻两帧，后续布局变化直接复用投影。
+                lineNameLabelsFrame = requestAnimationFrame(syncLineNameLabelDataForCurrentState);
+                return;
+            }
+            options.projectedPaths = projected.data;
+        }
+        const nextData = buildLineNameLabelCandidates(paths, options);
         const signature = JSON.stringify(nextData);
-        if (signature === lineNameLabelsDataSignature) return;
+        if (signature === lineNameLabelsDataSignature) {
+            lineNameLabelInput = { paths, key: inputKey };
+            return;
+        }
         if (mapEngine.setSourceData?.('line-name-labels-source', nextData)) {
             lineNameLabelsDataSignature = signature;
+            lineNameLabelInput = { paths, key: inputKey };
         }
     };
 
@@ -2344,6 +2374,10 @@ const initMapApp = async () => {
     }
 
     const scheduleLineNameLabelPlacement = () => {
+        if (movingLineNameLabels === null) {
+            requestLineNameLabelLayout();
+            return;
+        }
         if (lineNameLabelsFrame !== null) return;
         lineNameLabelsFrame = requestAnimationFrame(syncLineNameLabelDataForCurrentState);
     };
@@ -2482,12 +2516,16 @@ const initMapApp = async () => {
     }
 
     mapEngine.on?.('movestart', () => { movingLineNameLabels = readVisibleLineNameLabels(); });
-    mapEngine.on?.('move', scheduleLineNameLabelPlacement);
+    const onLineNameLabelCameraChange = () => {
+        lineNameLabelProjectionVersion += 1;
+        scheduleLineNameLabelPlacement();
+    };
+    mapEngine.on?.('move', onLineNameLabelCameraChange);
     mapEngine.on?.('moveend', () => {
         movingLineNameLabels = null;
         scheduleLineNameLabelPlacement();
     });
-    mapEngine.on?.('resize', scheduleLineNameLabelPlacement);
+    mapEngine.on?.('resize', onLineNameLabelCameraChange);
     mapEngine.on?.('idle', () => {
         if (movingLineNameLabels === null && readCurrentLineNameLabelLayout().signature !== lineNameLabelLayout?.signature) {
             scheduleLineNameLabelPlacement();
@@ -2501,6 +2539,7 @@ const initMapApp = async () => {
         lineNameLabelLayoutObserver.disconnect();
         lineNameLabelResizeObserver.disconnect();
         clearTimeout(lineNameLabelLayoutTimer);
+        if (lineNameLabelsFrame !== null) cancelAnimationFrame(lineNameLabelsFrame);
         document.removeEventListener('transitionend', onLineNameLabelPanelTransition);
     });
 
