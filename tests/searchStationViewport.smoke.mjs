@@ -82,4 +82,33 @@ const createController = () => {
     assert.deepEqual(fits[2].bounds, fits[3].bounds);
 }
 
+// 快速预览可能在面板入场动画第一帧前定位，目标范围应与面板完全展开后相同。
+{
+    const previousWindow = globalThis.window;
+    globalThis.window = { innerWidth: 1440, innerHeight: 900 };
+    try {
+        const fits = [];
+        let panelVisible = true;
+        let rect = { left: 1464, right: 1844, top: 60, bottom: 840, width: 380, height: 780 };
+        const viewport = createRoutePreviewViewportController({
+            mapEngine: { fitBounds: (bounds, options) => fits.push({ bounds, options }) },
+            getPanelElement: () => ({ getBoundingClientRect: () => rect }),
+            isPanelVisible: () => panelVisible,
+            getMenuElement: () => ({ getBoundingClientRect: () => ({ width: 380, right: 380 }) })
+        });
+        const bbox = { minLng: 139, minLat: 35, maxLng: 140, maxLat: 36 };
+        viewport.previewFitWithSidePanels(bbox);
+        rect = { ...rect, left: 1050, right: 1430 };
+        viewport.previewFitWithSidePanels(bbox);
+        assert.deepEqual(fits[0].bounds, fits[1].bounds);
+        assert.deepEqual(fits[0].options.padding, fits[1].options.padding, '动画开始前与完全展开后的定位须一致');
+        panelVisible = false;
+        rect = { ...rect, left: 1464, right: 1844 };
+        viewport.previewFitWithSidePanels(bbox);
+        assert.equal(fits[2].options.padding.left, 430, '面板隐藏时继续避让原菜单');
+    } finally {
+        globalThis.window = previousWindow;
+    }
+}
+
 console.log('站点搜索定位回归通过');

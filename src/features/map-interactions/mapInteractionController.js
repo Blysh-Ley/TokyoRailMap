@@ -1,5 +1,6 @@
 import { mapClick } from '../../store/actions.js';
 import { isMapClickSelectionAllowedByHighlight } from '../../domain/mapClickSelectionEligibility.js';
+import { stationSelectionPerf } from '../../debug/stationSelectionPerformanceProbe.js';
 
 const STATION_INTERACTION_LAYER_IDS = ['stations-layer', 'station-labels-layer'];
 const STATION_LABEL_INTERACTION_LAYER_ID = 'station-labels-layer';
@@ -78,6 +79,8 @@ export const bindBlankMapClickRestore = ({
         const hits = layers.length
             ? (mapEngine.queryRenderedFeatures?.(event.point, { layers }) || [])
             : [];
+        const perfSessionId = hits.length ? undefined
+            : stationSelectionPerf.begin('reset', { entry: 'map.blank-click' });
 
         store?.dispatch?.(mapClick({
             source: 'mapInteractionController.bindBlankMapClickRestore',
@@ -91,12 +94,12 @@ export const bindBlankMapClickRestore = ({
         hidePanel?.();
         clearReachableStopsOverlay?.();
         if (hasActiveSelection?.() === true) {
-            clearSelectionsAndRestore?.();
+            clearSelectionsAndRestore?.({ perfSessionId });
             return;
         }
 
         const clearAllPreviews = isMultiSelectModeEnabled?.() !== true;
-        cancelStationRestoreState?.({ clearPreview: !clearAllPreviews });
+        cancelStationRestoreState?.({ clearPreview: !clearAllPreviews, perfSessionId });
         if (clearAllPreviews) clearTripPathPreview?.();
     });
 };

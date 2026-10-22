@@ -1,4 +1,5 @@
 import { DATA_URLS, getCachedJson } from '../lib/fetch.js';
+import { stationSelectionPerf } from '../debug/stationSelectionPerformanceProbe.js';
 import { buildVirtualTripPreviewPayload } from '../lib/trip-preview.js';
 import {
     buildAlternateTripSourceIndex,
@@ -11,6 +12,15 @@ import {
 } from '../lib/throughServiceManager.js';
 
 const toText = (v) => String(v ?? '').trim();
+
+const measureBranchStage = (name, detail, sessionId, callback) => {
+    const end = stationSelectionPerf.span(`branch.${name}`, { ...detail, kind: 'sync' }, sessionId);
+    try {
+        return callback();
+    } finally {
+        end();
+    }
+};
 
 const branchAnalysisCacheByLine = new Map();
 let allTimetableRecordsPromise = null;
@@ -1095,7 +1105,8 @@ const finalizeBranchAnalysisPlan = ({
     isActive = () => true,
     throughServiceRouteCandidatesByTripId = null,
     throughServiceRouteCandidatesByComponentKey = null,
-    analysisBodyCache = null
+    analysisBodyCache = null,
+    perfSessionId = null
 } = {}) => {
     if (!isActive()) return createStaleBranchAnalysisResult(plan);
     const targetTimetables = [];
@@ -1154,20 +1165,30 @@ const finalizeBranchAnalysisPlan = ({
     }
 
     if (!isActive()) return createStaleBranchAnalysisResult(plan);
-    const ttLists = buildThroughServiceTtLists(targetTimetables, idMap, {
+    const ttLists = measureBranchStage('through-service-routes', {
+        lineId: plan.lid, targetCount: targetTimetables.length
+    }, perfSessionId, () => buildThroughServiceTtLists(targetTimetables, idMap, {
         routeCandidatesByTripId: throughServiceRouteCandidatesByTripId,
         routeCandidatesByComponentKey: throughServiceRouteCandidatesByComponentKey,
         anchorStationIdSet: plan.anchorStationIdSet
-    });
+    }));
     if (!isActive()) return createStaleBranchAnalysisResult(plan);
-    const fullRoutes = clipRoutesToThroughServiceSegments(
+    const fullRoutes = measureBranchStage('select-full-routes', {
+        lineId: plan.lid, throughServiceCount: ttLists.length
+    }, perfSessionId, () => clipRoutesToThroughServiceSegments(
         selectFullRoutes(ttLists),
         plan.throughServiceCategory
-    );
+    ));
     if (!isActive()) return createStaleBranchAnalysisResult(plan);
-    const graph = buildGraph(fullRoutes);
-    const branchList = extractBranchLists(graph, fullRoutes).map((seq) => dedupKeepOrder(seq));
-    const endpoints = collectRouteEndpoints(fullRoutes);
+    const graph = measureBranchStage('build-graph', {
+        lineId: plan.lid, fullRouteCount: fullRoutes.length
+    }, perfSessionId, () => buildGraph(fullRoutes));
+    const branchList = measureBranchStage('extract-branches', {
+        lineId: plan.lid, fullRouteCount: fullRoutes.length
+    }, perfSessionId, () => extractBranchLists(graph, fullRoutes).map((seq) => dedupKeepOrder(seq)));
+    const endpoints = measureBranchStage('collect-endpoints', {
+        lineId: plan.lid, fullRouteCount: fullRoutes.length
+    }, perfSessionId, () => collectRouteEndpoints(fullRoutes));
     if (!isActive()) return createStaleBranchAnalysisResult(plan);
 
     const resultBody = {
@@ -1231,8 +1252,13 @@ const runBranchAnalysisPlan = async ({
 
 const runBranchAnalysisPlansBatch = async ({
     plans,
-    isActive = () => true
+    isActive = () => true,
+    perfSessionId = stationSelectionPerf.currentId()
 } = {}) => {
+    const endBatch = stationSelectionPerf.span('branch.analysis-batch', {
+        kind: 'wall', planCount: Array.isArray(plans) ? plans.length : 0
+    }, perfSessionId);
+    try {
     const list = Array.isArray(plans) ? plans.filter(Boolean) : [];
     if (!list.length) return [];
     if (!isActive()) return list.map((plan) => createStaleBranchAnalysisResult(plan));
@@ -1255,7 +1281,14 @@ const runBranchAnalysisPlansBatch = async ({
         };
     };
 
-    const { allRecords, idMap, lineStationIdsById, recordsByLineId } = await loadAllTimetableRecords();
+    const endLoad = stationSelectionPerf.span('branch.load-timetables', { kind: 'wall' }, perfSessionId);
+    let timetableRecords;
+    try {
+        timetableRecords = await loadAllTimetableRecords();
+    } finally {
+        endLoad();
+    }
+    const { allRecords, idMap, lineStationIdsById, recordsByLineId } = timetableRecords;
     if (!isActive()) return list.map((plan) => createStaleBranchAnalysisResult(plan));
 
     const lineIds = [];
@@ -1273,17 +1306,25 @@ const runBranchAnalysisPlansBatch = async ({
         }
     }
 
-    const candidateRecords = getCandidateRecordsForLineIds({
+    const candidateRecords = measureBranchStage('candidate-records', {
+        lineCount: lineIds.length, planCount: uniquePlans.length
+    }, perfSessionId, () => getCandidateRecordsForLineIds({
         allRecords,
         recordsByLineId,
         lineIds,
         lineSet: lineIdSet
-    });
+    }));
 
     const sharedThroughCategoryCache = new Map();
     const sharedThroughServiceRouteCandidatesByTripId = new Map();
     const sharedThroughServiceRouteCandidatesByComponentKey = new Map();
-    const planTripFilterIndexByLineId = buildPlanTripFilterIndexByLineId(uniquePlans);
+    const planTripFilterIndexByLineId = measureBranchStage('trip-filter-index', {
+        planCount: uniquePlans.length
+    }, perfSessionId, () => buildPlanTripFilterIndexByLineId(uniquePlans));
+    const endMatch = stationSelectionPerf.span('branch.match-records', {
+        kind: 'sync', candidateCount: candidateRecords.length, planCount: uniquePlans.length
+    }, perfSessionId);
+    try {
     for (let i = 0; i < candidateRecords.length; i += 1) {
         if (i % 128 === 0 && !isActive()) return list.map((plan) => createStaleBranchAnalysisResult(plan));
         const rec = candidateRecords[i];
@@ -1306,20 +1347,26 @@ const runBranchAnalysisPlansBatch = async ({
             });
         }
     }
+    } finally {
+        endMatch();
+    }
     if (!isActive()) return list.map((plan) => createStaleBranchAnalysisResult(plan));
 
     const resultsByCacheKey = new Map();
     const sharedAnalysisBodyCache = new Map();
     for (const plan of uniquePlans) {
-        const result = finalizeBranchAnalysisPlan({
+        const result = measureBranchStage('finalize-plan', {
+            lineId: plan.lid, candidateCount: plan.baseFilteredRecords.length
+        }, perfSessionId, () => finalizeBranchAnalysisPlan({
             plan,
             idMap,
             lineStationIdsById,
             isActive,
             throughServiceRouteCandidatesByTripId: sharedThroughServiceRouteCandidatesByTripId,
             throughServiceRouteCandidatesByComponentKey: sharedThroughServiceRouteCandidatesByComponentKey,
-            analysisBodyCache: sharedAnalysisBodyCache
-        });
+            analysisBodyCache: sharedAnalysisBodyCache,
+            perfSessionId
+        }));
         resultsByCacheKey.set(toText(plan?.cacheKey) || '', result);
         if (result?.reason === 'stale') {
             return list.map((originalPlan) => createStaleBranchAnalysisResult(originalPlan));
@@ -1329,6 +1376,9 @@ const runBranchAnalysisPlansBatch = async ({
         resultsByCacheKey.get(toText(plan?.cacheKey) || ''),
         plan
     ));
+    } finally {
+        endBatch();
+    }
 };
 
 export const analyzeBranchesForLine = async (lineId, options = {}) => {
@@ -1905,8 +1955,13 @@ export const previewBranchesForLineRequests = async ({
     isStillActive,
     previewSource = 'route-map-branch',
     endpointOnlyStationPreview = false,
-    fitOptions = {}
+    fitOptions = {},
+    perfSessionId = stationSelectionPerf.currentId()
 } = {}) => {
+    const endPreview = stationSelectionPerf.span('branch.preview-requests', {
+        kind: 'wall', requestCount: Array.isArray(requests) ? requests.length : 0
+    }, perfSessionId);
+    try {
     const source = toText(previewSource) || 'route-map-branch';
     const normalizedFitMode = toText(fitMode) || 'commit';
     const normalizedFitOptions = fitOptions && typeof fitOptions === 'object' ? fitOptions : {};
@@ -1935,6 +1990,10 @@ export const previewBranchesForLineRequests = async ({
     );
 
     const batchItems = [];
+    const endPlans = stationSelectionPerf.span('branch.create-plans', {
+        kind: 'sync', requestCount: list.length
+    }, perfSessionId);
+    try {
     for (const request of list) {
         if (!stillActive()) return { ok: false, reason: 'stale' };
         const requestHighlightStationIds = Array.isArray(request?.anchorStationIds)
@@ -1978,11 +2037,15 @@ export const previewBranchesForLineRequests = async ({
             endpointLabelCounts: request?.endpointLabelCounts
         });
     }
+    } finally {
+        endPlans();
+    }
 
     const plans = batchItems.map((item) => item.plan).filter(Boolean);
     const analysisResults = await runBranchAnalysisPlansBatch({
         plans,
-        isActive: stillActive
+        isActive: stillActive,
+        perfSessionId
     });
     if (!stillActive()) return { ok: false, reason: 'stale', results };
 
@@ -1994,7 +2057,9 @@ export const previewBranchesForLineRequests = async ({
             built = { ok: false, reason: 'stale', result: analysisResult };
         }
         if (!built) {
-            built = buildBranchPreviewFromAnalysisResult({
+            built = measureBranchStage('build-virtual-trips', {
+                lineId: item.lid, branchCount: analysisResult?.branchList?.length || 0
+            }, perfSessionId, () => buildBranchPreviewFromAnalysisResult({
                 lid: item.lid,
                 lineName: item.lineName,
                 result: analysisResult,
@@ -2005,7 +2070,7 @@ export const previewBranchesForLineRequests = async ({
                 throughServiceCategory: toText(item.plan?.throughServiceCategory),
                 originStationIds: item.originStationIds,
                 terminalStationIds: item.terminalStationIds
-            });
+            }));
         }
         if (!stillActive()) return { ok: false, reason: 'stale', results };
         results.push(built);
@@ -2052,11 +2117,13 @@ export const previewBranchesForLineRequests = async ({
         virtualTrips
     };
     if (!stillActive()) return { ok: false, reason: 'stale', results };
-    const previewResult = actions.previewTripPath(previewPayload, {
+    const previewResult = measureBranchStage('apply-preview', {
+        requestCount: list.length, virtualTripCount: virtualTrips.length
+    }, perfSessionId, () => actions.previewTripPath(previewPayload, {
         ...normalizedFitOptions,
         fitMode: normalizedFitMode,
         clearBefore: true
-    });
+    }));
     if (!previewResult?.ok) {
         if (previewResult?.reason === 'stale') return { ok: false, reason: previewResult.reason, results };
         return {
@@ -2075,4 +2142,7 @@ export const previewBranchesForLineRequests = async ({
         results,
         virtualTripCount: virtualTrips.length
     };
+    } finally {
+        endPreview();
+    }
 };

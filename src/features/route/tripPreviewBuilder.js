@@ -122,7 +122,7 @@ export const createTripPreviewBuilder = ({
     const buildTripPreviewFeatures = (payload, context = {}) => {
         const outLineFeatures = [];
         const outStopFeatures = [];
-        const coordsForBbox = [];
+        const geometriesForBbox = new Set();
         const stopIds = new Set();
         const pastStopIds = new Set();
         const lineSegmentCache = context?.lineSegmentCache instanceof Map
@@ -149,6 +149,9 @@ export const createTripPreviewBuilder = ({
             : new Map();
         const lineOffsetProfileCache = context?.lineOffsetProfileCache instanceof Map
             ? context.lineOffsetProfileCache
+            : new Map();
+        const lineGeometryCache = context?.lineGeometryCache instanceof Map
+            ? context.lineGeometryCache
             : new Map();
         const debugLoop = !!isDebugLoopEnabled?.();
         const previewSource = String(payload?.previewSource || payload?.__previewSource || '').trim();
@@ -412,9 +415,18 @@ export const createTripPreviewBuilder = ({
 
         const pushLineFeature = (coords, lineId, role = 'line', colorOverride = '', options = {}) => {
             if (!Array.isArray(coords) || coords.length < 2) return;
-            for (const c of coords) {
-                if (Array.isArray(c) && c.length >= 2) coordsForBbox.push(c);
+            let geometry = lineGeometryCache.get(coords);
+            if (!geometry) {
+                let bbox = null;
+                for (const c of coords) {
+                    if (!Array.isArray(c) || c.length < 2) continue;
+                    bbox = extendBBox?.(bbox, Number(c[0]), Number(c[1])) || bbox;
+                }
+                geometry = { key: coordsKey(coords), bbox };
+                lineGeometryCache.set(coords, geometry);
             }
+            // 即使线路要素已去重，每个班次仍须保留完整边界框。
+            geometriesForBbox.add(geometry);
             const routeLineId = String(options?.routeLineId || options?.r || options?.geometryLineId || lineId || '').trim();
             const geometryLineId = String(options?.geometryLineId || routeLineId || lineId || '').trim();
             const offsetLineId = String(options?.offsetLineId || routeLineId || geometryLineId || '').trim();
@@ -425,7 +437,7 @@ export const createTripPreviewBuilder = ({
             const lineOffsetUnits = Number.isFinite(explicitOffsetUnits)
                 ? explicitOffsetUnits
                 : (role === 'line' ? resolveLineOffsetUnitsCached(offsetLineId) : 0);
-            const geometryKey = coordsKey(coords);
+            const geometryKey = geometry.key;
             let profileJson = '';
             if (role === 'line' || Number.isFinite(explicitOffsetUnits)) {
                 const profileKey = `${offsetLineId}||${geometryKey}`;
@@ -708,10 +720,10 @@ export const createTripPreviewBuilder = ({
         }
 
         let bbox = null;
-        for (const c of coordsForBbox) {
-            const lng = Number(c?.[0]);
-            const lat = Number(c?.[1]);
-            bbox = extendBBox?.(bbox, lng, lat) || bbox;
+        for (const geometry of geometriesForBbox) {
+            if (!geometry.bbox) continue;
+            bbox = extendBBox?.(bbox, geometry.bbox.minLng, geometry.bbox.minLat) || bbox;
+            bbox = extendBBox?.(bbox, geometry.bbox.maxLng, geometry.bbox.maxLat) || bbox;
         }
 
         return {

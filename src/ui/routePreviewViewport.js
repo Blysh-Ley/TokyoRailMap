@@ -64,6 +64,7 @@ export const createRoutePreviewViewportController = ({
     isAdaptiveViewportEnabled = () => true,
     getMenuElement = () => null,
     getPanelElement = () => null,
+    isPanelVisible = () => false,
     getRouteMapElement = () => null,
     getTripDetailElement = () => null,
     getSelectedLineId = () => '',
@@ -108,7 +109,8 @@ export const createRoutePreviewViewportController = ({
                 && isRectOnScreen(routeMapRect);
             return {
                 rect,
-                visible: isRectOnScreen(rect),
+                // 入场动画尚未进入屏幕时，也按已展开的面板避让菜单。
+                visible: isPanelVisible() === true || isRectOnScreen(rect),
                 // 固定面板按布局位置避让，不计入淡入动画的水平位移。
                 routeMapInset: routeMapVisible
                     ? Math.max(0, mapEngine.getCanvas().getBoundingClientRect().right - routeMapEl.offsetLeft) : 0

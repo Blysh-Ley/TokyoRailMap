@@ -156,6 +156,8 @@ export const createRoutePreviewController = ({
             isMultiSelectModeEnabled,
             clearTripPathPreview,
             resolvePayloadSource: resolveTripPreviewPayloadSource,
+            buildSelectionKey: buildTripPreviewSelectionKey,
+            rebuildMultiTripPreview: rebuildTripPreviewFromMultiSelections,
             applyActiveState: applyTripPreviewState,
             syncStationOffset: syncStationOffsetForTripPreviewState,
             clearEndpointPopups: clearTripEndpointPopups,
@@ -163,10 +165,25 @@ export const createRoutePreviewController = ({
             applySelectionEffects,
             scheduleCollisionLayerRefresh,
             previewFitWithSidePanels,
-            resolveStationOverrideColor,
-            resolveVirtualTripStationIds,
-            updateEndpointPopups
+            resolveStationOverrideColor: resolveTripPreviewStationOverrideColor,
+            resolveVirtualTripStationIds: ({ aggregate } = {}) => aggregate?.stopIds || null,
+            updateEndpointPopups: updateTripEndpointPopups
         });
+    };
+
+    const fitTripPreviewSnapshot = (snapshot, options = {}) => {
+        if (!snapshot?.built?.bbox) return false;
+        if (isMultiSelectModeEnabled?.()) {
+            const key = buildTripPreviewSelectionKey?.(snapshot.payload);
+            const selection = routeFeature.getTripPreviewSelection(key);
+            if (!selection || selection.hidden === true) return false;
+            const aggregate = buildTripPreviewAggregate?.();
+            previewFitWithSidePanels?.(aggregate?.bbox, options);
+            return true;
+        }
+        if (getTripPreviewActiveSource?.() !== snapshot.source) return false;
+        previewFitWithSidePanels?.(snapshot.built.bbox, options);
+        return true;
     };
 
     const clearDirHeaderPreview = () => {
@@ -214,6 +231,7 @@ export const createRoutePreviewController = ({
         clearTripPathPreview,
         previewTripPath,
         applyTripPreviewSnapshot,
+        fitTripPreviewSnapshot,
         clearDirHeaderPreview,
         previewDirHeader,
         toggleTripPreviewSelectionVisibility,

@@ -1,3 +1,5 @@
+import { stationSelectionPerf } from '../../debug/stationSelectionPerformanceProbe.js';
+
 const DEFAULT_STATION_LABEL_ZOOMEND_DELAY_MS = 50;
 const DEFAULT_LOW_ZOOM_CAPSULE_INTERVAL_MS = 96;
 const DEFAULT_HIGH_ZOOM_CAPSULE_THRESHOLD = 13;
@@ -86,10 +88,15 @@ export const createLayerFeature = ({
         : (() => globalThis.performance?.now?.() ?? Date.now());
 
     const measureStationOffsetStage = (stageName, callback) => {
-        if (typeof stationOffsetPerformanceProbe?.measure === 'function') {
-            return stationOffsetPerformanceProbe.measure(stageName, callback);
+        const end = stationSelectionPerf.span(`layer.${stageName}`, { kind: 'sync' });
+        try {
+            if (typeof stationOffsetPerformanceProbe?.measure === 'function') {
+                return stationOffsetPerformanceProbe.measure(stageName, callback);
+            }
+            return callback();
+        } finally {
+            end();
         }
-        return callback();
     };
 
     const recordStationOffsetSyncAttempt = (detail) => {
@@ -177,7 +184,7 @@ export const createLayerFeature = ({
         scheduleTransferCapsuleRefresh();
     };
 
-    const refreshTransferCapsulesNow = (options = {}) => {
+    const refreshTransferCapsulesNow = (options = {}) => measureStationOffsetStage('refresh-transfer-capsules', () => {
         const stationsData = getTransferCapsuleStationsData?.();
         const stationGroups = getTransferCapsuleStationGroups?.();
         if (!stationsData || !Array.isArray(stationGroups)) return false;
@@ -228,7 +235,7 @@ export const createLayerFeature = ({
             renderTransferCapsules?.(transferCapsuleData);
         });
         return true;
-    };
+    });
 
     const syncAndRefreshTransferCapsules = (geojson, options = {}) => {
         if (!geojson) return false;

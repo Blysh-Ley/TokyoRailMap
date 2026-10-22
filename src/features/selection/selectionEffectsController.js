@@ -1,3 +1,5 @@
+import { stationSelectionPerf } from '../../debug/stationSelectionPerformanceProbe.js';
+
 const normalizeLineIds = (value) => {
     if (value instanceof Set) return Array.from(value).map((id) => String(id)).filter(Boolean);
     if (Array.isArray(value)) return value.map((id) => String(id)).filter(Boolean);
@@ -61,19 +63,27 @@ export const createSelectionEffectsController = ({
     requestFrame = (callback) => requestAnimationFrame(callback)
 } = {}) => {
     let frameId = null;
+    let endQueuedPerf = () => {};
 
-    const applyEffectsNow = () => {
-        effects.applyBaseLayerVisibilityFilters?.();
-        effects.applyLineSelectionStyle?.();
-        effects.syncSelectionLineTripPreview?.();
-        effects.syncSelectionCompanyTripPreview?.();
-        effects.applyStationSelectionStyle?.();
-        effects.updateSelectedStationCurrentPopup?.();
-        effects.applyTransferStationLabelCollapse?.();
-        effects.updateSelectedStationLabelClass?.();
-        effects.updateMultiSelectStationLabelChips?.();
-        effects.scheduleSelectionLayerRefresh?.();
-        effects.updateSelectionBadge?.();
+    const applyEffectsNow = (perfSessionId) => {
+        const endPerf = stationSelectionPerf.span('selection.effects', { kind: 'sync' }, perfSessionId);
+        const runEffect = (name) => {
+            const endEffectPerf = stationSelectionPerf.span(`selection.${name}`, { kind: 'sync' }, perfSessionId);
+            try { effects[name]?.(); }
+            finally { endEffectPerf(); }
+        };
+        try {
+        runEffect('applyBaseLayerVisibilityFilters');
+        runEffect('applyLineSelectionStyle');
+        runEffect('syncSelectionLineTripPreview');
+        runEffect('syncSelectionCompanyTripPreview');
+        runEffect('applyStationSelectionStyle');
+        runEffect('updateSelectedStationCurrentPopup');
+        runEffect('applyTransferStationLabelCollapse');
+        runEffect('updateSelectedStationLabelClass');
+        runEffect('updateMultiSelectStationLabelChips');
+        runEffect('scheduleSelectionLayerRefresh');
+        runEffect('updateSelectionBadge');
 
         try {
             const snapshot = getSelectionSnapshot() || {};
@@ -106,19 +116,27 @@ export const createSelectionEffectsController = ({
         } catch {
             // Selection effects should never break the interaction loop.
         }
+        } finally { endPerf(); }
     };
 
     const applySelectionEffects = () => {
-        if (frameId != null) cancelFrame(frameId);
+        if (frameId != null) {
+            cancelFrame(frameId);
+            endQueuedPerf({ outcome: 'coalesced' });
+        }
+        const perfSessionId = stationSelectionPerf.currentId();
+        endQueuedPerf = stationSelectionPerf.span('selection.raf-wait', { kind: 'async' }, perfSessionId);
         frameId = requestFrame(() => {
             frameId = null;
-            applyEffectsNow();
+            endQueuedPerf({ outcome: 'executed' });
+            applyEffectsNow(perfSessionId);
         });
     };
 
     const destroy = () => {
         if (frameId == null) return;
         cancelFrame(frameId);
+        endQueuedPerf({ outcome: 'destroyed' });
         frameId = null;
     };
 

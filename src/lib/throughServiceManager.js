@@ -416,13 +416,9 @@ const doesRefMatchTrip = (refId, tripKeySet) => {
     return !!base && tripKeySet.has(base);
 };
 
-const hasRequiredThroughStation = (trips, requiredRule) => {
-    const requiredStation = toText(requiredRule?.station || requiredRule);
-    if (!requiredStation) return true;
-    const requiresThrough = requiredRule?.through === true;
-
+const deriveThroughStationFacts = (trips, getTripFacts) => {
     const list = Array.isArray(trips) ? trips : [];
-    let hasStation = false;
+    const stationTokens = new Set();
     const allTripKeys = new Set();
     for (const trip of list) {
         for (const key of getTripIdentityKeys(trip)) {
@@ -432,14 +428,9 @@ const hasRequiredThroughStation = (trips, requiredRule) => {
 
     const endpointTokens = new Set();
     for (const trip of list) {
-        const tt = Array.isArray(trip?.tt) ? trip.tt : [];
-        for (const stop of tt) {
-            if (getStationToken(stop?.s) === requiredStation) {
-                hasStation = true;
-            }
+        for (const stationId of getTripFacts(trip).stationIds) {
+            stationTokens.add(getStationToken(stationId));
         }
-
-        if (!requiresThrough) continue;
 
         const hasPreviousInChain = getRefs(trip, 'pt').some((refId) => doesRefMatchTrip(refId, allTripKeys));
         const hasNextInChain = getRefs(trip, 'nt').some((refId) => doesRefMatchTrip(refId, allTripKeys));
@@ -453,17 +444,36 @@ const hasRequiredThroughStation = (trips, requiredRule) => {
         }
     }
 
-    if (!hasStation) return false;
-    return !requiresThrough || !endpointTokens.has(requiredStation);
+    return { stationTokens, endpointTokens };
 };
 
 const classifyTripByThroughServiceSegments = (trips) => {
     const list = Array.isArray(trips) ? trips : [];
+    // 仅在本次分类中复用班次派生信息，保留各配置原有的遍历和提前退出顺序。
+    const factsByTrip = new Map();
+    const getTripFacts = (trip) => {
+        let facts = factsByTrip.get(trip);
+        if (!facts) {
+            facts = {
+                refLineIds: getTripRefLineIds(trip),
+                tt: Array.isArray(trip?.tt) ? trip.tt : [],
+                stationIds: [],
+                stationLineIds: []
+            };
+            factsByTrip.set(trip, facts);
+        }
+        return facts;
+    };
+    let hasNmTrips;
+    let throughStationFacts;
     let best = null;
     for (const info of THROUGH_SERVICE_CONFIGS) {
         const stationSet = info.stationIdSet;
         if (!(stationSet instanceof Set) || !stationSet.size) continue;
-        if (info.excludeNmTrips !== false && list.some((trip) => hasTripNmMarker(trip))) continue;
+        if (info.excludeNmTrips !== false) {
+            hasNmTrips ??= list.some((trip) => hasTripNmMarker(trip));
+            if (hasNmTrips) continue;
+        }
         const segmentLineIdSet = new Set(info.segmentLineIds || []);
         const requiredThroughStationToken = info.requiredThroughStationToken;
 
@@ -473,7 +483,8 @@ const classifyTripByThroughServiceSegments = (trips) => {
         let isInsideCategory = true;
 
         for (const trip of list) {
-            for (const refLineId of getTripRefLineIds(trip)) {
+            const facts = getTripFacts(trip);
+            for (const refLineId of facts.refLineIds) {
                 if (!segmentLineIdSet.has(refLineId)) {
                     isInsideCategory = false;
                     break;
@@ -481,9 +492,8 @@ const classifyTripByThroughServiceSegments = (trips) => {
             }
             if (!isInsideCategory) break;
 
-            const tt = Array.isArray(trip?.tt) ? trip.tt : [];
-            for (const stop of tt) {
-                const stationId = toText(stop?.s);
+            for (let stopIndex = 0; stopIndex < facts.tt.length; stopIndex += 1) {
+                const stationId = facts.stationIds[stopIndex] ??= toText(facts.tt[stopIndex]?.s);
                 if (!stationId) continue;
                 hasStation = true;
                 if (!stationSet.has(stationId)) {
@@ -491,14 +501,19 @@ const classifyTripByThroughServiceSegments = (trips) => {
                     break;
                 }
                 matchedStationCount += 1;
-                const lineId = getLineIdFromStationId(stationId);
+                const lineId = facts.stationLineIds[stopIndex] ??= getLineIdFromStationId(stationId);
                 if (lineId) matchedLineIds.add(lineId);
             }
             if (!isInsideCategory) break;
         }
 
         if (!isInsideCategory || !hasStation) continue;
-        if (!hasRequiredThroughStation(list, requiredThroughStationToken)) continue;
+        const requiredStation = toText(requiredThroughStationToken?.station || requiredThroughStationToken);
+        if (requiredStation) {
+            throughStationFacts ??= deriveThroughStationFacts(list, getTripFacts);
+            if (!throughStationFacts.stationTokens.has(requiredStation)) continue;
+            if (requiredThroughStationToken?.through === true && throughStationFacts.endpointTokens.has(requiredStation)) continue;
+        }
         if (matchedLineIds.size < 2) continue;
         const score = (matchedLineIds.size * 1000) + matchedStationCount;
         if (!best || score > best.score) {

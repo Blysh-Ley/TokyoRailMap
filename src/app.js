@@ -10,6 +10,7 @@ import {
     getIconCandidates,
     getPreferredCachedImageSrc,
     initializeFetchCache,
+    isManagedDataAssetUrl,
     preloadAllDataAssets,
     preloadIcons,
     registerCompanyLogoMap,
@@ -123,6 +124,7 @@ import { createStationOffsetRuntimeController } from './features/layer/stationOf
 import { createRouteFeature } from './features/route/routeFeature.js';
 import { createRoutePreviewBridgeApi } from './features/route/routePreviewBridgeApi.js';
 import { createRoutePreviewRuntimeController } from './features/route/routePreviewRuntimeController.js';
+import { preloadPreparedStationPreviews } from './services/stationPreviewMaterialization.js';
 import { createReachableStopsOverlayRenderer } from './features/search/reachableStopsOverlayRenderer.js';
 import { createTravelSearchMapRuntime } from './features/search/reachableStopsRuntime.js';
 import { createSearchHeatmapFeature } from './features/search/searchHeatmapFeature.js';
@@ -196,6 +198,7 @@ import { createMobileStartupSplashRuntime } from './app/mobileStartupSplashRunti
 import { createMobileKeyboardLayoutView } from './ui/mobileKeyboardLayoutView.js';
 import { registerDebugZoomTools } from './app/debugZoomTools.js';
 import { registerStationOffsetPerformanceProbe } from './debug/stationOffsetPerformanceProbe.js';
+import { stationSelectionPerf } from './debug/stationSelectionPerformanceProbe.js';
 import { createStationOffsetVisualSampler } from './debug/stationOffsetVisualSampler.js';
 import { bindMapStartup } from './app/mapStartup.js';
 import {
@@ -375,6 +378,13 @@ const mapEngine = createMapEngine({
     }
 });
 const map = mapEngine.getMap();
+window.__TokyoRailStationSelectionPerf = {
+    ...stationSelectionPerf,
+    start: () => stationSelectionPerf.start({ mapEngine, target: window })
+};
+if (new URLSearchParams(window.location.search).get('stationSelectionPerf') === '1') {
+    window.__TokyoRailStationSelectionPerf.start();
+}
 let sampleStationOffsetVisuals = null;
 let sampleTransferCapsuleVisuals = null;
 let sampleStationLabelAnchors = null;
@@ -591,9 +601,10 @@ const initMapApp = async () => {
     const dismissPanelForMobileNavItem = (item) => {
         if (!MOBILE_PANEL_DISMISS_NAV_ITEMS.has(item)) return;
         if (!isPanelVisuallyOpen()) return;
+        const perfSessionId = stationSelectionPerf.begin('reset', { entry: 'mobile-bottom-nav', item });
         panel?.hide?.();
         clearTripPathPreview();
-        clearSelectionsAndRestore();
+        clearSelectionsAndRestore({ perfSessionId });
     };
     window.addEventListener(MOBILE_BOTTOM_NAV_EVENT, (event) => {
         const item = String(event?.detail?.item || '').trim();
@@ -625,6 +636,11 @@ const initMapApp = async () => {
         mobileBottomNavController?.returnToMapFromSettings?.() === true
     );
     appStore.subscribe((_state, action = {}) => {
+        stationSelectionPerf.mark('store.action', {
+            type: action.type,
+            source: action.payload?.source,
+            stationId: _state.stationVisualHighlightId
+        });
         if (action?.type !== ACTION_TYPES.MAP_CLICK) return;
         returnMobileSettingsToMap();
     });
@@ -1288,9 +1304,11 @@ const initMapApp = async () => {
 
     const applyMultiSelectBaseLayerState = (enabled) => {
         const effects = resolveMultiSelectBaseLayerModeEffects({ enabled });
+        const perfSessionId = effects.clearSelectionState
+            ? stationSelectionPerf.begin('reset', { entry: 'multi-select-base-layer' }) : undefined;
         try {
             if (effects.clearBaseSelections) clearBaseMultiSelections();
-            if (effects.clearSelectionState) clearSelectionsAndRestore();
+            if (effects.clearSelectionState) clearSelectionsAndRestore({ perfSessionId });
         } catch {
             // ignore
         }
@@ -2034,11 +2052,16 @@ const initMapApp = async () => {
         return new Set([sid]);
     };
 
-    const setStationVisualHighlight = (stationId) => {
+    const setStationVisualHighlight = (stationId, { previewUpdate = false } = {}) => {
+        if (previewUpdate) stationSelectionPerf.mark('station.preview-visual-update', { stationId });
+        else if (stationId) stationSelectionPerf.begin('station', { stationId: String(stationId) });
+        const endPerf = stationSelectionPerf.span('station.dispatch', { kind: 'sync' });
+        try {
         appStore.dispatch(stationVisualHighlightSet({
             stationId: String(stationId ?? '').trim() || null,
             source: 'app.setStationVisualHighlight'
         }));
+        } finally { endPerf(); }
     };
 
     const PANEL_STATION_VISUAL_PREVIEW_SOURCES = new Set([
@@ -2054,7 +2077,7 @@ const initMapApp = async () => {
         if (!stationId) {
             throw new Error(`[station-visual-highlight] ${source} missing panelCurrentStationVisualHighlightId`);
         }
-        setStationVisualHighlight(stationId);
+        setStationVisualHighlight(stationId, { previewUpdate: true });
     };
 
     const updateSelectedStationLabelClass = () => {
@@ -2312,6 +2335,8 @@ const initMapApp = async () => {
     }
 
     const syncLineNameLabelDataForCurrentState = () => {
+        const endPerf = stationSelectionPerf.span('labels.placement', { kind: 'sync' });
+        try {
         lineNameLabelsFrame = null;
         if (!mapEngine.hasLayer?.('line-name-labels-layer')) return;
         const moving = movingLineNameLabels !== null;
@@ -2347,8 +2372,11 @@ const initMapApp = async () => {
         if (!moving) {
             let projected = lineNameLabelProjectedPaths.get(paths);
             if (projected?.version !== lineNameLabelProjectionVersion || projected.scopeKey !== scopeKey) {
-                projected = { version: lineNameLabelProjectionVersion, scopeKey,
-                    data: projectLineNameLabelPaths(paths, options) };
+                const endProjectionPerf = stationSelectionPerf.span('labels.project', { kind: 'sync' });
+                try {
+                    projected = { version: lineNameLabelProjectionVersion, scopeKey,
+                        data: projectLineNameLabelPaths(paths, options) };
+                } finally { endProjectionPerf(); }
                 lineNameLabelProjectedPaths.set(paths, projected);
                 // 首次投影和候选比较分到相邻两帧，后续布局变化直接复用投影。
                 lineNameLabelsFrame = requestAnimationFrame(syncLineNameLabelDataForCurrentState);
@@ -2356,7 +2384,10 @@ const initMapApp = async () => {
             }
             options.projectedPaths = projected.data;
         }
-        const nextData = buildLineNameLabelCandidates(paths, options);
+        const endCandidatesPerf = stationSelectionPerf.span('labels.candidates', { kind: 'sync', moving });
+        let nextData;
+        try { nextData = buildLineNameLabelCandidates(paths, options); }
+        finally { endCandidatesPerf(); }
         const signature = JSON.stringify(nextData);
         if (signature === lineNameLabelsDataSignature) {
             lineNameLabelInput = { paths, key: inputKey };
@@ -2366,6 +2397,7 @@ const initMapApp = async () => {
             lineNameLabelsDataSignature = signature;
             lineNameLabelInput = { paths, key: inputKey };
         }
+        } finally { endPerf(); }
     };
 
     function readVisibleLineNameLabels() {
@@ -2527,8 +2559,14 @@ const initMapApp = async () => {
     });
     mapEngine.on?.('resize', onLineNameLabelCameraChange);
     mapEngine.on?.('idle', () => {
-        if (movingLineNameLabels === null && readCurrentLineNameLabelLayout().signature !== lineNameLabelLayout?.signature) {
-            scheduleLineNameLabelPlacement();
+        if (movingLineNameLabels !== null) return;
+        if (lineNameLabelLayoutTimer === null
+            && readCurrentLineNameLabelLayout().signature === lineNameLabelLayout?.signature) return;
+        // 已收到稳定通知时不再追加尾等待，实际就绪判断仍留在下一帧执行。
+        clearTimeout(lineNameLabelLayoutTimer);
+        lineNameLabelLayoutTimer = null;
+        if (lineNameLabelsFrame === null) {
+            lineNameLabelsFrame = requestAnimationFrame(syncLineNameLabelDataForCurrentState);
         }
     });
     const onLineNameLabelPanelTransition = event => {
@@ -2891,7 +2929,11 @@ const initMapApp = async () => {
         });
     }
 
-    function cancelStationRestoreState({ clearPreview = true } = {}) {
+    function cancelStationRestoreState({ clearPreview = true, perfSessionId } = {}) {
+        const sessionId = perfSessionId === undefined
+            ? stationSelectionPerf.begin('reset', { entry: 'cancelStationRestoreState' }) : perfSessionId;
+        const endPerf = stationSelectionPerf.span('reset.cancel-station-work', { kind: 'sync', clearPreview }, sessionId);
+        try {
         panel?.invalidateStationRestoreSession?.({ cancelRender: true });
         panel?.cancelStationThroughPreview?.({ clearPreview });
         const stationPopupMode = stationPopup?.getOpenMode?.() || null;
@@ -2900,10 +2942,15 @@ const initMapApp = async () => {
             stationPopup?.closePopup?.({ committed: true });
         }
         cancelSelectionTripPreviewSync();
+        } finally { endPerf(); }
     }
 
-    function clearSelectionsAndRestore() {
-        cancelStationRestoreState({ clearPreview: false });
+    function clearSelectionsAndRestore({ perfSessionId } = {}) {
+        const sessionId = perfSessionId === undefined
+            ? stationSelectionPerf.begin('reset', { entry: 'clearSelectionsAndRestore' }) : perfSessionId;
+        const endPerf = stationSelectionPerf.span('reset.synchronous', { kind: 'sync' }, sessionId);
+        try {
+        cancelStationRestoreState({ clearPreview: false, perfSessionId: sessionId });
         clearTripPathPreview();
         panel?.resetTemporaryTimeOverride?.();
         appStore.dispatch(selectionClear({ source: 'app.clearSelectionsAndRestore' }));
@@ -2915,6 +2962,7 @@ const initMapApp = async () => {
         requestTransferCapsuleRefreshAfterCollision('__init__');
 
         if (menu && typeof menu.clearActive === 'function') menu.clearActive();
+        } finally { endPerf(); }
     }
 
     const selectionEffectsController = createSelectionEffectsController({
@@ -3085,7 +3133,7 @@ const initMapApp = async () => {
             return false;
         }
         if (detail.handled !== true) return false;
-        clearSelectionsAndRestore();
+        clearSelectionsAndRestore({ perfSessionId: detail.perfSessionId });
         return true;
     };
     const handleJourneyBackIntent = (payload = {}) => {
@@ -3301,6 +3349,7 @@ const initMapApp = async () => {
 
     const openPanelForStationWithAutoScroll = async (props, options = {}) => {
         const p = props || {};
+        const perfSessionId = stationSelectionPerf.ensure('station', { stationId: String(p.id || ''), entry: 'openPanelForStationWithAutoScroll' });
         appStore.dispatch(panelOpenRequested({
             source: 'app.openPanelForStationWithAutoScroll',
             stationId: String(p?.id ?? '').trim() || null,
@@ -3313,6 +3362,9 @@ const initMapApp = async () => {
         const shouldAutoScroll = options?.autoScroll !== false;
         const deferHeavyRender = options?.deferHeavyRender !== false;
         const onTimetablesRendered = (result) => {
+            stationSelectionPerf.mark('station.timetables-complete', {
+                stationPreviewApplied: result?.stationPreviewApplied
+            }, perfSessionId);
             panel?.setScrollTop?.(shouldAutoScroll ? prevScrollTop : 0, { behavior: 'auto' });
             if (shouldAutoScroll) {
                 const lineId = getPreferredPanelScrollLineIdFromStationProps(p);
@@ -3330,6 +3382,7 @@ const initMapApp = async () => {
             deferHeavyRender,
             onTimetablesRendered
         });
+        stationSelectionPerf.mark('station.panel-open-returned', { deferHeavyRender }, perfSessionId);
         // 分阶段渲染在基础面板显示后返回，最终滚动和预加载由完成回调执行。
         if (!deferHeavyRender) onTimetablesRendered(result);
     };
@@ -3479,9 +3532,11 @@ const initMapApp = async () => {
             && String(payload?.previewSource || payload?.__previewSource || '') === 'station-through-branch',
         previewTripPath: (payload, options) => previewTripPath(payload, options),
         applyTripPreviewSnapshot: (snapshot, options) => {
+            lastTripPreviewPayload = snapshot?.payload || null;
             applyPanelStationVisualHighlightFromTripPreviewPayload(snapshot?.payload);
-            return routePreviewController.applyTripPreviewSnapshot?.(snapshot, options);
+            return routePreviewControllerRef.applyTripPreviewSnapshot?.(snapshot, options);
         },
+        fitTripPreviewSnapshot: (snapshot, options) => routePreviewControllerRef.fitTripPreviewSnapshot(snapshot, options),
         clearTripPathPreview: (options) => clearTripPathPreview(options),
         fitMobileTripBounds: (payload, options) => fitMobileTripBounds(payload, options),
         isMultiSelectModeEnabled
@@ -3726,10 +3781,11 @@ const initMapApp = async () => {
                 isHighlightClickGateActive: shouldUseHighlightStyle,
                 getHighlightedLineIdsForClickGate: getHighlightedLineIdsForMapClickSelection,
                 onBlockedLineClick: () => {
+                    const perfSessionId = stationSelectionPerf.begin('reset', { entry: 'blocked-line-click' });
                     if (isMultiSelectModeEnabled() !== true) {
                         clearTripPathPreview();
                     }
-                    clearSelectionsAndRestore();
+                    clearSelectionsAndRestore({ perfSessionId });
                 }
             }
         });
@@ -3840,6 +3896,11 @@ const initMapApp = async () => {
         generatedLinesData = linesGeoJSON;
         generatedLineNameLabelsData = applyLineNameLabelDarkColors(lineNameLabelsGeoJSON);
         generatedStationsData = stationsGeoJSON;
+        preloadPreparedStationPreviews({
+            stationFeatures: stationsGeoJSON.features,
+            profile: isManagedDataAssetUrl(DATA_URLS.stationGroups) ? 'merged-groups' : 'base-groups',
+            enabled: !new URL(window.location.href).searchParams.has('generateStationPreviews')
+        });
         generatedStationGroups = stationGroups;
         generatedRawRailways = rawRailways;
         generatedRawStations = rawStations;
@@ -4402,6 +4463,7 @@ const initMapApp = async () => {
             getViewportFitOptions: () => getMobileViewportFitOptions(),
             getMenuElement: () => menu?.wrapper || null,
             getPanelElement: () => panel?.el || null,
+            isPanelVisible: () => panel?.isVisible() === true,
             getRouteMapElement: () => document.querySelector('[data-route-map]'),
             getTripDetailElement: () => document.querySelector('[data-panel-trip-detail]'),
             getSelectedLineId: () => selectedLineId,
@@ -4555,10 +4617,17 @@ const initMapApp = async () => {
 
         routePreviewControllerRef = routePreviewController;
         clearTripPathPreview = (options = {}) => {
+            const endPerf = stationSelectionPerf.span('preview.clear', { kind: 'sync', source: options.source });
+            try {
             routePreviewController.clearTripPathPreview(options);
             lastTripPreviewPayload = null;
+            } finally { endPerf(); }
         };
         previewTripPath = (payload, options = {}) => {
+            const endPerf = stationSelectionPerf.span('preview.build-and-apply', {
+                kind: 'sync', source: payload?.previewSource, virtualTripCount: payload?.virtualTrips?.length
+            });
+            try {
             lastTripPreviewPayload = payload || null;
             applyPanelStationVisualHighlightFromTripPreviewPayload(payload);
             const fitMobileViewport = shouldFitMobileTripBounds(payload, options);
@@ -4568,6 +4637,7 @@ const initMapApp = async () => {
                 fitMobileTripBounds(payload, { ...options, lineFeatures: result.built?.lineFc?.features });
             }
             return result;
+            } finally { endPerf(); }
         };
         clearDirHeaderPreview = routePreviewController.clearDirHeaderPreview;
         const toggleTripPreviewSelectionVisibility = routePreviewController.toggleTripPreviewSelectionVisibility;
@@ -5434,8 +5504,9 @@ const initMapApp = async () => {
             onRestoreStationLines: popupSelectionCallbacks.onRestoreStationLines,
             onFixedPopupBlankClick: () => {
                 // 固定 popup：点击空白处直接恢复“全显示”，且不触发预览快照回滚
+                const perfSessionId = stationSelectionPerf.begin('reset', { entry: 'fixed-popup-blank-click' });
                 hoverFeature?.commitPreview();
-                clearSelectionsAndRestore();
+                clearSelectionsAndRestore({ perfSessionId });
             },
             onPopupClose: ({ committed }) => {
                 hoverFeature?.closePreview({ committed });

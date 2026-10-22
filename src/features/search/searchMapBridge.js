@@ -68,6 +68,9 @@ export const createSearchMapBridge = ({
         applyTripPreviewSnapshot: (snapshot, options = {}) => {
             return routePreviewApi.applyTripPreviewSnapshot?.(snapshot, options);
         },
+        fitTripPreviewSnapshot: (snapshot, options = {}) => {
+            return routePreviewApi.fitTripPreviewSnapshot?.(snapshot, options) === true;
+        },
         clearTripPathPreview: () => {
             return routePreviewApi.clearTripPathPreview?.();
         },

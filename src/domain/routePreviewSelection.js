@@ -126,12 +126,16 @@ export const buildTripPreviewLineFeatureDedupKey = (feature) => {
     return `${role}||${lineId}||${pathKey}${profileKey ? `||offset:${profileKey}` : ''}`;
 };
 
-export const buildTripPreviewLineFeatureCollisionKey = (feature) => {
+export const buildTripPreviewLineFeatureCollisionKey = (feature, coordinateKeyCache = null) => {
     const role = toText(feature?.properties?.role || 'line');
     const lineId = toText(feature?.properties?.lineId);
     const geom = feature?.geometry;
     if (!geom || geom.type !== 'LineString') return '';
-    const pathKey = buildLineCoordsCanonicalKey(geom.coordinates);
+    let pathKey = coordinateKeyCache?.get(geom.coordinates);
+    if (pathKey === undefined) {
+        pathKey = buildLineCoordsCanonicalKey(geom.coordinates);
+        if (Array.isArray(geom.coordinates)) coordinateKeyCache?.set(geom.coordinates, pathKey);
+    }
     if (!pathKey) return '';
     const profile = feature?.properties?.line_offset_profile;
     const profileKey = profile === undefined ? '' : toText(feature.properties.line_offset_id || feature.properties.id || profile);
@@ -212,10 +216,11 @@ export const applyTripPreviewCollisionLaneOffsets = (features, options = {}) => 
     if (!minSeparationUnits) return list.slice();
 
     const groups = new Map();
+    const coordinateKeyCache = options?.coordinateKeyCache || new WeakMap();
     for (let index = 0; index < list.length; index += 1) {
         const feature = list[index];
         if (!doesTripPreviewLineFeatureAllowCollisionLane(feature)) continue;
-        const key = buildTripPreviewLineFeatureCollisionKey(feature);
+        const key = buildTripPreviewLineFeatureCollisionKey(feature, coordinateKeyCache);
         if (!key) continue;
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push({ feature, index });
@@ -247,11 +252,15 @@ export const aggregateTripPreviewLineFeatureItems = ({
     const list = Array.isArray(items) ? items : [];
     if (!list.length) return [];
 
+    // 去重、来源分组和通道分配只在本次聚合内复用相同坐标的标准串。
+    const coordinateKeyCache = new WeakMap();
     const rows = [];
     for (const item of list) {
         const feature = item?.feature;
-        const collisionKey = buildTripPreviewLineFeatureCollisionKey(feature);
-        const baseKey = buildLineFeatureDedupKey?.(feature) || '';
+        const collisionKey = buildTripPreviewLineFeatureCollisionKey(feature, coordinateKeyCache);
+        const baseKey = buildLineFeatureDedupKey === buildTripPreviewLineFeatureDedupKey
+            ? collisionKey
+            : (buildLineFeatureDedupKey?.(feature) || '');
         if (!baseKey) continue;
         const contextKey = buildLineFeatureItemContextKey(item);
         if (!contextKey) continue;
@@ -289,7 +298,7 @@ export const aggregateTripPreviewLineFeatureItems = ({
         );
     }
 
-    return applyTripPreviewCollisionLaneOffsets(Array.from(lineFeatureByKey.values()));
+    return applyTripPreviewCollisionLaneOffsets(Array.from(lineFeatureByKey.values()), { coordinateKeyCache });
 };
 
 export const mergeTripPreviewBBox = (current, next) => {
@@ -341,7 +350,8 @@ export const buildTripPreviewAggregateFromPayloadList = ({
         servingCountCache: new Map(),
         lineOffsetUnitsCache: new Map(),
         lineOffsetMetricsCache: new Map(),
-        lineOffsetProfileCache: new Map()
+        lineOffsetProfileCache: new Map(),
+        lineGeometryCache: new Map()
     };
 
     for (const payload of list) {

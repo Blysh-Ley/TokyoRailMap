@@ -18,6 +18,8 @@ import {
     setImageElementFromCache
 } from '../../lib/fetch.js';
 import { previewBranchesForLineRequests } from '../../map/analyze_branch.js';
+import { stationSelectionPerf } from '../../debug/stationSelectionPerformanceProbe.js';
+import { getPreparedStationPreview, rememberPreparedStationPreview } from '../../services/stationPreviewMaterialization.js';
 import {
     buildTemporaryThroughServicePanelPlan,
     detectThroughServiceCategoryFromTrips,
@@ -827,6 +829,7 @@ export function createPanel(options = {}) {
     };
 
     const cancelStationThroughPreview = ({ clearPreview = true } = {}) => {
+        stationSelectionPerf.mark('panel.cancel-station-preview', { clearPreview });
         stationThroughPreviewSuppressed = true;
         stationRenderToken += 1;
         clearStationThroughPreviewCache();
@@ -2367,6 +2370,7 @@ export function createPanel(options = {}) {
     const previewPanelDirFilterDirection = async (lineId, dirKey, { rerender = false } = {}) => {
         const lineDirKey = makeLineDirKey(lineId, dirKey);
         const previewToken = ++dirFilterPreviewToken;
+        const perfSessionId = stationSelectionPerf.currentId();
         const stationTokenAtStart = stationRenderToken;
         const isStillActive = () => previewToken === dirFilterPreviewToken
             && stationTokenAtStart === stationRenderToken
@@ -2394,6 +2398,7 @@ export function createPanel(options = {}) {
             );
             const alternateLineMembership = await getAlternateLineMembership();
             const previewResult = await previewBranchesForLineRequests({
+                perfSessionId,
                 requests: [request],
                 fitMode: 'commit',
                 highlightStationIds: endpointStationIds,
@@ -2449,7 +2454,11 @@ export function createPanel(options = {}) {
         renderToken,
         stationId = '',
         fitOptions = {},
-        isStillCurrentRender = () => true
+        isStillCurrentRender = () => true,
+        preparedStationPreview = null,
+        preparedStationPreviewApplied = false,
+        rememberDefaultPreview = false,
+        perfSessionId = stationSelectionPerf.currentId()
     } = {}) => {
         const sid = toText(stationId);
         const isStillActive = () => !stationThroughPreviewSuppressed
@@ -2457,6 +2466,10 @@ export function createPanel(options = {}) {
             && isStillCurrentRender()
             && renderToken === stationRenderToken
             && sid === toText(currentStationId);
+        const endPreviewPerf = stationSelectionPerf.span('panel.station-preview', {
+            kind: 'async', stationId: sid, renderToken
+        }, perfSessionId);
+        try {
         if (!sid || !isStillActive()) return false;
         // 站点高亮保留平滑定位，并为实际绘制留出一秒响应预算。
         const normalizedFitOptions = { duration: 200, ...fitOptions };
@@ -2474,12 +2487,30 @@ export function createPanel(options = {}) {
             return false;
         }
 
+        const prepared = preparedStationPreview || getPreparedStationPreview(
+            sid, currentServiceDay, panelIsDarkThemeActive() ? 'dark' : 'light'
+        );
+        if (prepared?.requestsSignature === requestsSignature) {
+            if (!isStillActive()) return false;
+            const snapshot = prepared.snapshot;
+            const options = { ...normalizedFitOptions, fitMode: 'commit', source: STATION_THROUGH_PREVIEW_SOURCE };
+            const fitted = preparedStationPreviewApplied
+                && crossFeatureBridge.fitTripPreviewSnapshot(snapshot, options);
+            const applied = fitted || crossFeatureBridge.applyTripPreviewSnapshot(snapshot, options)?.ok === true;
+            if (applied && isStillActive()) {
+                stationThroughPreviewCache = { key: cacheKey, snapshot };
+                stationSelectionPerf.mark('panel.station-preview-materialized', { stationId: sid }, perfSessionId);
+                return true;
+            }
+        }
+
         if (
             stationThroughPreviewCache?.key === cacheKey
             && stationThroughPreviewCache?.snapshot
             && stationThroughPreviewCache.snapshot.source === STATION_THROUGH_PREVIEW_SOURCE
         ) {
             if (!isStillActive()) return false;
+            stationSelectionPerf.mark('panel.station-preview-cache-hit', { stationId: sid }, perfSessionId);
             const applied = await crossFeatureBridge.applyTripPreviewSnapshot?.(
                 stationThroughPreviewCache.snapshot,
                 {
@@ -2507,6 +2538,7 @@ export function createPanel(options = {}) {
                 anchorStationIds: highlightStationIds
             }));
             const previewResult = await previewBranchesForLineRequests({
+                perfSessionId,
                 requests: anchoredRequests,
                 fitMode: 'commit',
                 highlightStationIds,
@@ -2535,6 +2567,15 @@ export function createPanel(options = {}) {
                     key: cacheKey,
                     snapshot
                 };
+                if (rememberDefaultPreview) {
+                    rememberPreparedStationPreview({
+                        stationId: sid,
+                        serviceDay: currentServiceDay,
+                        theme: panelIsDarkThemeActive() ? 'dark' : 'light',
+                        requestsSignature,
+                        snapshot
+                    });
+                }
             } else {
                 clearStationThroughPreviewCache();
             }
@@ -2545,6 +2586,9 @@ export function createPanel(options = {}) {
                 clearStationThroughPreviewCache();
             }
             return false;
+        }
+        } finally {
+            endPreviewPerf({ stale: !isStillActive() });
         }
     };
 
@@ -2731,6 +2775,8 @@ export function createPanel(options = {}) {
         const printRowsByServiceDayOriginal = new Map(PRINT_SERVICE_DAYS.map((day) => [day, []]));
         const throughDirectionCache = new Map();
         const collectedRowsByTrip = new WeakMap();
+        const filterKeysByTrip = new Map();
+        const stopsByTrip = new WeakMap();
         const allTypeColorByName = new Map();
         const stopTypeColorByName = new Map();
         const stopTypeNameSet = new Set();
@@ -2825,7 +2871,11 @@ export function createPanel(options = {}) {
                 const tripServiceDay = parseTripServiceDayFromId(tripId);
                 if (tripServiceDay && tripServiceDay !== targetServiceDay) continue;
 
-                const tripFilterKeys = buildTripFilterKeys(trip);
+                let tripFilterKeys = filterKeysByTrip.get(trip);
+                if (!tripFilterKeys) {
+                    tripFilterKeys = buildTripFilterKeys(trip);
+                    filterKeysByTrip.set(trip, tripFilterKeys);
+                }
                 if (activeAllowedKeys && activeAllowedKeys.size) {
                     const hit = tripFilterKeys.some((k) => activeAllowedKeys.has(k));
                     if (!hit) continue;
@@ -2845,16 +2895,21 @@ export function createPanel(options = {}) {
                 const tt = Array.isArray(trip?.tt) ? trip.tt : [];
                 if (!tt.length) continue;
 
-                const stop = tt.find((x) => {
-                    const currentSid = toText(x?.s);
-                    if (!currentSid) return false;
-
-                    // 1. 首先判断 ID 是否完全一致（最快且最直接）
-                    if (currentSid === stationKey) return true;
-
-                    // 2. 如果不一致，再查换乘组索引
-                    return sg?.get?.(currentSid)?.includes?.(stationKey);
-                });
+                let stopsByStation = stopsByTrip.get(trip);
+                if (!stopsByStation) {
+                    stopsByStation = new Map();
+                    stopsByTrip.set(trip, stopsByStation);
+                }
+                if (!stopsByStation.has(stationKey)) {
+                    // 同一轮各展示用途共用查找结果，仍按原停站顺序匹配 ID 或换乘组。
+                    stopsByStation.set(stationKey, tt.find((x) => {
+                        const currentSid = toText(x?.s);
+                        if (!currentSid) return false;
+                        if (currentSid === stationKey) return true;
+                        return sg?.get?.(currentSid)?.includes?.(stationKey);
+                    }));
+                }
+                const stop = stopsByStation.get(stationKey);
 
                 if (trackTypeSummary && typeBaseName && !isTypeExcludedForSummary && !hasNm) {
                     const typeSummaryPayload = {
@@ -4071,7 +4126,8 @@ export function createPanel(options = {}) {
     });
 
     const prepareTimetableForLineEl = async (lineEl, stationId, token, {
-        buildPrintPayloads = true
+        buildPrintPayloads = true,
+        perfSessionId = stationSelectionPerf.currentId()
     } = {}) => {
         if (!lineEl || !(lineEl instanceof Element)) return;
         if (token !== timetableRenderToken) return;
@@ -4083,6 +4139,10 @@ export function createPanel(options = {}) {
             && stationIdAtStart === toText(currentStationId);
         const lineId = toText(lineEl.getAttribute('data-line-id'));
         if (!lineId) return;
+        const endPreparePerf = stationSelectionPerf.span('panel.prepare-line', {
+            kind: 'async', stationId, lineId, renderToken: token
+        }, perfSessionId);
+        try {
 
         const ttEl = lineEl.querySelector('[data-timetable-root]');
         if (!ttEl) return;
@@ -4115,9 +4175,21 @@ export function createPanel(options = {}) {
 
         return ({ deferDomCommit = false } = {}) => {
             if (!isStillCurrentRender()) return;
-            const rendered = renderHtml();
+            const endHtmlPerf = stationSelectionPerf.span('panel.line-html', {
+                kind: 'sync', stationId, lineId, renderToken: token
+            }, perfSessionId);
+            let rendered;
+            try {
+                rendered = renderHtml();
+            } finally {
+                endHtmlPerf();
+            }
             const commit = () => {
                 if (!isStillCurrentRender()) return;
+                const endCommitPerf = stationSelectionPerf.span('panel.line-dom', {
+                    kind: 'sync', stationId, lineId, renderToken: token
+                }, perfSessionId);
+                try {
                 panelMarqueeController.cleanup(ttEl);
                 ttEl.innerHTML = toText(rendered?.html) || '';
                 applyLineStationInfo(lineEl, rendered?.stationInfo || null);
@@ -4199,17 +4271,24 @@ export function createPanel(options = {}) {
             // 超长方向标题/班次终点站：自动滚动（等待布局稳定 + 已完成默认定位滚动后再测量）
             */
                 scheduleMarqueeApply(ttEl);
+                } finally {
+                    endCommitPerf();
+                }
             };
             if (deferDomCommit) return commit;
             commit();
         };
+        } finally {
+            endPreparePerf({ stale: !isStillCurrentRender() });
+        }
     };
 
     const renderTimetableForLineEl = async (lineEl, stationId, token, {
         buildPrintPayloads = true,
-        deferDomCommit = false
+        deferDomCommit = false,
+        perfSessionId = stationSelectionPerf.currentId()
     } = {}) => {
-        const renderTimetable = await prepareTimetableForLineEl(lineEl, stationId, token, { buildPrintPayloads });
+        const renderTimetable = await prepareTimetableForLineEl(lineEl, stationId, token, { buildPrintPayloads, perfSessionId });
         return renderTimetable?.({ deferDomCommit });
     };
 
@@ -5071,8 +5150,18 @@ export function createPanel(options = {}) {
         canRefreshStationPreview = () => true,
         beforeCommit = null,
         prioritizeStationPreview = false,
-        closeDirFilterBeforeRender = true
+        closeDirFilterBeforeRender = true,
+        preparedStationPreview = null,
+        preparedStationPreviewApplied = false,
+        rememberDefaultPreview = false,
+        perfSessionId = stationSelectionPerf.currentId()
     } = {}) => {
+        const perfStationId = toText(currentStationId);
+        const perfRenderToken = stationRenderToken;
+        const endTimetablesPerf = stationSelectionPerf.span('panel.render-all-timetables', {
+            kind: 'async', stationId: perfStationId, renderToken: perfRenderToken, prioritizeStationPreview
+        }, perfSessionId);
+        try {
         if (!isPanelActive()) {
             timetableRefreshPending = true;
             return;
@@ -5099,15 +5188,22 @@ export function createPanel(options = {}) {
         const yieldToPanelPaint = async (force = false) => {
             // 按时间预算让出主线程，只有地图提交后等待绘制机会，避免每批强制等待一帧。
             if (!force && nowMs() - batchStartedAt < 128) return;
+            const endYieldPerf = stationSelectionPerf.span('panel.yield', {
+                kind: 'async', stationId, force
+            }, perfSessionId);
+            try {
             await new Promise((resolve) => {
                 if (force) schedulePanelPostPaintTask(resolve);
                 else setTimeout(resolve, 0);
             });
+            } finally {
+                endYieldPerf();
+            }
             batchStartedAt = nowMs();
         };
         for (const el of lineEls) {
             if (prioritizeStationPreview) {
-                const renderTimetable = await prepareTimetableForLineEl(el, stationId, token, { buildPrintPayloads });
+                const renderTimetable = await prepareTimetableForLineEl(el, stationId, token, { buildPrintPayloads, perfSessionId });
                 if (typeof renderTimetable === 'function') {
                     preparedTimetables.push(renderTimetable);
                     await yieldToPanelPaint();
@@ -5115,7 +5211,8 @@ export function createPanel(options = {}) {
             } else {
                 const commit = await renderTimetableForLineEl(el, stationId, token, {
                     buildPrintPayloads,
-                    deferDomCommit: typeof beforeCommit === 'function'
+                    deferDomCommit: typeof beforeCommit === 'function',
+                    perfSessionId
                 });
                 if (typeof commit === 'function') commits.push(commit);
             }
@@ -5125,7 +5222,11 @@ export function createPanel(options = {}) {
             stationPreviewApplied = await scheduleStationThroughPreview({
                 renderToken: stationRenderTokenAtStart,
                 stationId,
-                isStillCurrentRender
+                isStillCurrentRender,
+                preparedStationPreview,
+                preparedStationPreviewApplied,
+                rememberDefaultPreview,
+                perfSessionId
             }).catch(() => false);
             if (!isStillCurrentRender()) return;
             await yieldToPanelPaint(true);
@@ -5148,12 +5249,17 @@ export function createPanel(options = {}) {
         }
         body.querySelector('[data-station-timetable-loading]')?.remove();
         syncDirectionFocusStickyMetrics();
+        stationSelectionPerf.mark('panel.timetables-dom-committed', {
+            stationId, lineCount: lineEls.length, renderToken: token
+        }, perfSessionId);
         const completion = pendingStationTimetableCompletion;
         if (scheduleStationThroughPreviewAfterRender && !prioritizeStationPreview && canRefreshStationPreview()) {
             const previewResult = scheduleStationThroughPreview({
                 renderToken: stationRenderTokenAtStart,
                 stationId,
-                isStillCurrentRender: () => isStillCurrentRender() && canRefreshStationPreview()
+                isStillCurrentRender: () => isStillCurrentRender() && canRefreshStationPreview(),
+                rememberDefaultPreview,
+                perfSessionId
             }).catch(() => false);
             if (completion) {
                 const applied = await previewResult;
@@ -5165,6 +5271,9 @@ export function createPanel(options = {}) {
             schedulePanelPostPaintTask(() => {
                 if (!isStillCurrentRender() || pendingStationTimetableCompletion !== completion) return;
                 pendingStationTimetableCompletion = null;
+                stationSelectionPerf.mark('panel.timetables-postpaint-complete', {
+                    stationId, stationPreviewApplied, renderToken: token
+                }, perfSessionId);
                 completion({ stationPreviewApplied });
             });
         }
@@ -5182,6 +5291,9 @@ export function createPanel(options = {}) {
             pendingGridDataDebugLog = false;
         }
         return { stationPreviewApplied };
+        } finally {
+            endTimetablesPerf({ stale: perfRenderToken !== stationRenderToken || perfStationId !== toText(currentStationId) });
+        }
     };
 
     const rerenderLineById = async (lineId) => {
@@ -6363,8 +6475,9 @@ export function createPanel(options = {}) {
 
         if (panelShell.isHalfCollapsed?.() || panelShell.isCollapsed?.()) {
             if (isAndroidBack) {
+                const perfSessionId = stationSelectionPerf.begin('reset', { entry: 'android-panel-back' });
                 hide();
-                onAndroidBackPanelHidden?.();
+                onAndroidBackPanelHidden?.({ perfSessionId });
                 return true;
             }
             panelShell.expand?.();
@@ -6372,9 +6485,11 @@ export function createPanel(options = {}) {
         }
 
         if (panelShell.isVisible?.()) {
+            const perfSessionId = isAndroidBack
+                ? stationSelectionPerf.begin('reset', { entry: 'android-panel-back' }) : undefined;
             hide();
             if (isAndroidBack) {
-                onAndroidBackPanelHidden?.();
+                onAndroidBackPanelHidden?.({ perfSessionId });
             }
             return true;
         }
@@ -6425,7 +6540,15 @@ export function createPanel(options = {}) {
 
     const showForStationProps = async (props, options = {}) => {
         const deferHeavyRender = options?.deferHeavyRender === true;
+        const perfStationId = toText(props?.id);
+        const perfSessionId = stationSelectionPerf.ensure('station', {
+            stationId: perfStationId, entry: 'panel.showForStationProps'
+        });
         const renderToken = ++stationRenderToken;
+        const endShowPerf = stationSelectionPerf.span('panel.show-station', {
+            kind: 'async', stationId: perfStationId, renderToken, deferHeavyRender
+        }, perfSessionId);
+        try {
         pendingStationTimetableCompletion = null;
         syncAutoNowClock();
         panelMarqueeController.cleanup(body);
@@ -6489,13 +6612,33 @@ export function createPanel(options = {}) {
 
         let displayServingIds = stationRenderBootstrap.displayServingIds;
 
+        const preparedStationPreview = getPreparedStationPreview(
+            currentStationId, currentServiceDay, panelIsDarkThemeActive() ? 'dark' : 'light'
+        );
+        // 内容先显示，定位仍在面板准备结束后执行，沿用原有侧栏尺寸和取消边界。
+        const preparedStationPreviewApplied = preparedStationPreview
+            ? crossFeatureBridge.applyTripPreviewSnapshot(preparedStationPreview.snapshot, {
+                fitMode: 'none', preserveViewport: true, source: STATION_THROUGH_PREVIEW_SOURCE
+            })?.ok === true
+            : false;
+        if (preparedStationPreviewApplied) {
+            stationSelectionPerf.mark('panel.station-preview-materialized-early', {
+                stationId: currentStationId, renderToken
+            }, perfSessionId);
+        }
+
         if (deferHeavyRender) {
             const isStillCurrentStationRender = () => (
                 renderToken === stationRenderToken &&
                 toText(currentStationId) === toText(props?.id)
             );
             const timetableLoadingHtml = '<div hidden data-station-timetable-loading="1"></div>';
-            const initialStationRenderInputs = await buildPanelStationRenderInputs({
+            const endInitialInputsPerf = stationSelectionPerf.span('panel.station-render-inputs', {
+                kind: 'async', stationId: perfStationId, phase: 'initial', renderToken
+            }, perfSessionId);
+            let initialStationRenderInputs;
+            try {
+            initialStationRenderInputs = await buildPanelStationRenderInputs({
                 stationId: currentStationId,
                 stationNameZh: currentStationNameZh,
                 displayServingIds,
@@ -6505,6 +6648,9 @@ export function createPanel(options = {}) {
                 applyTemporarySourceLineOverrides,
                 buildTransferLineStationNameMap
             });
+            } finally {
+                endInitialInputsPerf();
+            }
             displayServingIds = initialStationRenderInputs.displayServingIds;
             currentLineGroupByMainId = initialStationRenderInputs.lineGroupByMainId;
             const initialLineStationNameByLineId = initialStationRenderInputs.lineStationNameByLineId;
@@ -6521,17 +6667,41 @@ export function createPanel(options = {}) {
             show({ refreshTimetables: false });
             scheduleCatalogRefresh();
             panelScrollRuntime.syncPanelTitleForActiveLine();
+            stationSelectionPerf.mark('panel.base-ready', {
+                stationId: perfStationId, renderToken, deferHeavyRender
+            }, perfSessionId);
 
+            const endDeferredQueuePerf = stationSelectionPerf.span('panel.deferred-wait', {
+                kind: 'async', stationId: perfStationId, renderToken
+            }, perfSessionId);
             schedulePanelPostPaintTask(async () => {
+                endDeferredQueuePerf();
+                const endDeferredPerf = stationSelectionPerf.span('panel.deferred-station', {
+                    kind: 'async', stationId: perfStationId, renderToken
+                }, perfSessionId);
+                try {
                 if (!isStillCurrentStationRender()) return;
-                const throughServicePanelServingLineIds = await buildThroughServicePanelServingLineIds({
+                const endServingLinesPerf = stationSelectionPerf.span('panel.through-serving-lines', {
+                    kind: 'async', stationId: perfStationId, renderToken
+                }, perfSessionId);
+                let throughServicePanelServingLineIds;
+                try {
+                throughServicePanelServingLineIds = await buildThroughServicePanelServingLineIds({
                     currentServingLineIds: currentStationServingIds,
                     displayLineIds: displayServingIds,
                     stationId: currentStationId
                 });
+                } finally {
+                    endServingLinesPerf();
+                }
                 if (!isStillCurrentStationRender()) return;
 
-                const throughPlan = await buildTemporaryThroughServicePanelPlan({
+                const endThroughPlanPerf = stationSelectionPerf.span('panel.through-plan', {
+                    kind: 'async', stationId: perfStationId, renderToken
+                }, perfSessionId);
+                let throughPlan;
+                try {
+                throughPlan = await buildTemporaryThroughServicePanelPlan({
                     stationId: currentStationId,
                     servingLineIds: throughServicePanelServingLineIds,
                     currentServiceDay,
@@ -6541,6 +6711,9 @@ export function createPanel(options = {}) {
                     parseTripServiceDayFromId,
                     isStillCurrentStation: isStillCurrentStationRender
                 });
+                } finally {
+                    endThroughPlanPerf();
+                }
                 if (!isStillCurrentStationRender()) return;
 
                 ({
@@ -6555,7 +6728,12 @@ export function createPanel(options = {}) {
                     throughServiceConfigs: THROUGH_SERVICE_CONFIGS
                 }));
 
-                const stationRenderInputs = await buildPanelStationRenderInputs({
+                const endRenderInputsPerf = stationSelectionPerf.span('panel.station-render-inputs', {
+                    kind: 'async', stationId: perfStationId, phase: 'final', renderToken
+                }, perfSessionId);
+                let stationRenderInputs;
+                try {
+                stationRenderInputs = await buildPanelStationRenderInputs({
                     stationId: currentStationId,
                     stationNameZh: currentStationNameZh,
                     displayServingIds,
@@ -6565,6 +6743,9 @@ export function createPanel(options = {}) {
                     applyTemporarySourceLineOverrides,
                     buildTransferLineStationNameMap
                 });
+                } finally {
+                    endRenderInputsPerf();
+                }
                 if (!isStillCurrentStationRender()) return;
                 displayServingIds = stationRenderInputs.displayServingIds;
                 currentLineGroupByMainId = stationRenderInputs.lineGroupByMainId;
@@ -6590,23 +6771,43 @@ export function createPanel(options = {}) {
                 await renderAllTimetables({
                     buildPrintPayloads: false,
                     scheduleStationThroughPreviewAfterRender: false,
-                    prioritizeStationPreview: true
+                    prioritizeStationPreview: true,
+                    preparedStationPreview,
+                    preparedStationPreviewApplied,
+                    rememberDefaultPreview: true,
+                    perfSessionId
                 });
                 if (!isStillCurrentStationRender() || timetableToken !== timetableRenderToken) return;
                 scheduleCatalogRefresh();
                 panelScrollRuntime.syncPanelTitleForActiveLine();
+                } finally {
+                    endDeferredPerf({ stale: !isStillCurrentStationRender() });
+                }
             });
             return;
         }
 
-        const throughServicePanelServingLineIds = await buildThroughServicePanelServingLineIds({
+        const endServingLinesPerf = stationSelectionPerf.span('panel.through-serving-lines', {
+            kind: 'async', stationId: perfStationId, renderToken
+        }, perfSessionId);
+        let throughServicePanelServingLineIds;
+        try {
+        throughServicePanelServingLineIds = await buildThroughServicePanelServingLineIds({
             currentServingLineIds: currentStationServingIds,
             displayLineIds: displayServingIds,
             stationId: currentStationId
         });
+        } finally {
+            endServingLinesPerf();
+        }
         if (renderToken !== stationRenderToken) return;
 
-        const throughPlan = await buildTemporaryThroughServicePanelPlan({
+        const endThroughPlanPerf = stationSelectionPerf.span('panel.through-plan', {
+            kind: 'async', stationId: perfStationId, renderToken
+        }, perfSessionId);
+        let throughPlan;
+        try {
+        throughPlan = await buildTemporaryThroughServicePanelPlan({
             stationId: currentStationId,
             servingLineIds: throughServicePanelServingLineIds,
             currentServiceDay,
@@ -6619,6 +6820,9 @@ export function createPanel(options = {}) {
                 toText(currentStationId) === toText(props?.id)
             )
         });
+        } finally {
+            endThroughPlanPerf();
+        }
         if (renderToken !== stationRenderToken) return;
         ({
             temporaryLineMetaById: temporaryPanelLineMetaById,
@@ -6645,7 +6849,12 @@ export function createPanel(options = {}) {
                     }
                 } */
 
-        const stationRenderInputs = await buildPanelStationRenderInputs({
+        const endRenderInputsPerf = stationSelectionPerf.span('panel.station-render-inputs', {
+            kind: 'async', stationId: perfStationId, phase: 'final', renderToken
+        }, perfSessionId);
+        let stationRenderInputs;
+        try {
+        stationRenderInputs = await buildPanelStationRenderInputs({
             stationId: currentStationId,
             stationNameZh: currentStationNameZh,
             displayServingIds,
@@ -6655,6 +6864,9 @@ export function createPanel(options = {}) {
             applyTemporarySourceLineOverrides,
             buildTransferLineStationNameMap
         });
+        } finally {
+            endRenderInputsPerf();
+        }
         displayServingIds = stationRenderInputs.displayServingIds;
         currentLineGroupByMainId = stationRenderInputs.lineGroupByMainId;
         const lineStationNameByLineId = stationRenderInputs.lineStationNameByLineId;
@@ -6675,13 +6887,20 @@ export function createPanel(options = {}) {
         scheduleCatalogRefresh();
 
         show({ refreshTimetables: false });
+        stationSelectionPerf.mark('panel.base-ready', {
+            stationId: perfStationId, renderToken, deferHeavyRender
+        }, perfSessionId);
 
         // 默认折叠态：填充每条线路的“未来最近 3 条”班次
         // 这里等待渲染完成，避免外部随后执行的 scrollToLineId 被后续异步渲染“拉回顶部”。
-        const result = await renderAllTimetables({ prioritizeStationPreview: true });
+        const result = await renderAllTimetables({ prioritizeStationPreview: true, preparedStationPreview,
+            preparedStationPreviewApplied, rememberDefaultPreview: true, perfSessionId });
         scheduleCatalogRefresh();
         panelScrollRuntime.syncPanelTitleForActiveLine();
         return result;
+        } finally {
+            endShowPerf({ stale: renderToken !== stationRenderToken });
+        }
     };
 
     const refreshPanelThemeColors = async () => {
@@ -6758,6 +6977,7 @@ export function createPanel(options = {}) {
 
     return {
         el: root,
+        isVisible: () => panelShell.isVisible(),
         show,
         hide,
         setTitle,

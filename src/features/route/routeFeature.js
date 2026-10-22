@@ -722,6 +722,8 @@ export const createRouteFeature = ({
             isMultiSelectModeEnabled,
             clearTripPathPreview,
             resolvePayloadSource,
+            buildSelectionKey,
+            rebuildMultiTripPreview,
             applyActiveState,
             syncStationOffset,
             clearEndpointPopups,
@@ -741,21 +743,15 @@ export const createRouteFeature = ({
                     reason: 'invalid-snapshot'
                 };
             }
+            tripPreviewPostEffectToken += 1;
 
-            if (options?.clearBefore === true) {
+            const inMultiSelectMode = !!isMultiSelectModeEnabled?.();
+            if (options?.clearBefore === true && !inMultiSelectMode) {
                 clearTripPathPreview?.({ source: String(snapshot?.source || '') || String(resolvePayloadSource?.(payload) || payload?.previewSource || payload?.__previewSource || '') });
             }
 
             const fitMode = String(options?.fitMode || payload?.fitMode || 'preview').trim() || 'preview';
             const payloadSource = String(resolvePayloadSource?.(payload) || snapshot?.source || payload?.previewSource || payload?.__previewSource || '').trim();
-            const inMultiSelectMode = !!isMultiSelectModeEnabled?.();
-            if (inMultiSelectMode) {
-                return {
-                    ok: false,
-                    reason: 'multiselect-not-supported'
-                };
-            }
-
             if (!hasVisibleBuiltPreview(built)) {
                 clearTripPathPreview?.({ source: payloadSource || '' });
                 return {
@@ -788,6 +784,19 @@ export const createRouteFeature = ({
                 endpointStationIds,
                 shouldUseEndpointOnlyStationPreview(payload)
             );
+
+            if (inMultiSelectMode) {
+                const selectionKey = String(buildSelectionKey?.(payload) || '').trim();
+                if (!selectionKey) return { ok: false, reason: 'missing-selection-key' };
+                this.setTripPreviewSelection(selectionKey, {
+                    payload: { ...payload },
+                    built: endpointAwareBuilt,
+                    source: payloadSource,
+                    hidden: false
+                });
+                rebuildMultiTripPreview?.(options.preserveViewport === true ? 'none' : fitMode);
+                return { ok: true, payload, built: endpointAwareBuilt, source: payloadSource };
+            }
 
             tripPreviewRenderer.ensureLayers();
             const stationIds = resolveVirtualTripStationIds?.({

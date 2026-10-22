@@ -15,6 +15,7 @@ import { captureRouteMapImage, requestRouteMapLineTimetablesPrint } from './rout
 import { createLineIconElement, getResolvedRouteIconMeta } from '../../lib/line-icons.js';
 import { getIconCandidates, getPreferredCachedImageSrc, setImageElementFromCache } from '../../lib/fetch.js';
 import { previewBranchesForLine } from '../../map/analyze_branch.js';
+import { stationSelectionPerf } from '../../debug/stationSelectionPerformanceProbe.js';
 import { THROUGH_SERVICE_CONFIGS_OBJECT } from '../../lib/throughServiceManager.js';
 import {
     DEFAULT_MOBILE_SHEET_PEEK_PX,
@@ -998,8 +999,10 @@ const setupRouteMapUi = () => {
         notifyRouteMapPopoverHoverLeave();
     };
 
-    const hideRouteMapForBackIntent = () => {
+    const hideRouteMapForBackIntent = (detail) => {
         if (root.classList.contains('is-hidden')) return false;
+        const perfSessionId = stationSelectionPerf.begin('reset', { entry: 'route-map-back' });
+        if (detail && typeof detail === 'object') detail.perfSessionId = perfSessionId;
 
         const target = returnTarget;
         pinned = false;
@@ -1133,7 +1136,7 @@ const setupRouteMapUi = () => {
     }, { passive: false });
 
     window.addEventListener(ROUTE_MAP_BACK_INTENT_EVENT, (evt) => {
-        if (!hideRouteMapForBackIntent()) return;
+        if (!hideRouteMapForBackIntent(evt?.detail)) return;
         if (evt?.detail && typeof evt.detail === 'object') {
             evt.detail.handled = true;
         }

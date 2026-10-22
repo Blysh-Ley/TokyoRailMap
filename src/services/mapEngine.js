@@ -1,4 +1,5 @@
 import { pickSelectionViewportLineAnchor } from '../domain/selectionViewportFit.js';
+import { stationSelectionPerf } from '../debug/stationSelectionPerformanceProbe.js';
 import { createTransferCapsuleFrameRenderer } from './transferCapsuleFrameRenderer.js';
 import { createStationCircleFrameRenderer } from './stationCircleFrameRenderer.js';
 import { createStationLabelAnchorBuffers } from './stationLabelAnchorBuffers.js';
@@ -660,8 +661,12 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
     const latestGeoJsonUpdateStateBySource = new WeakMap();
     const observesGeoJsonSourceReadiness = typeof map.on === 'function';
 
-    const applyGeoJsonSourceDataUpdate = (source, data, options = {}) => {
+    const applyGeoJsonSourceDataUpdate = (source, data, options = {}, perfSessionId = stationSelectionPerf.currentId()) => {
         if (!source) return false;
+        const endPerf = stationSelectionPerf.span('map.source-update', {
+            kind: 'sync', sourceId: source.id, featureCount: data?.features?.length
+        }, perfSessionId);
+        try {
 
         const fallbackData = typeof options?.fallbackData === 'function'
             ? options.fallbackData()
@@ -678,6 +683,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         if (diff && diff.update.length) {
             try {
                 source.updateData(diff);
+                stationSelectionPerf.mark('map.source-submit', { sourceId: source.id, method: 'updateData', featureCount: diff.update.length }, perfSessionId);
                 if ('_data' in source) source._data = fallbackData;
                 return true;
             } catch {
@@ -689,7 +695,9 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
 
         if (typeof source.setData !== 'function') return false;
         source.setData(fallbackData);
+        stationSelectionPerf.mark('map.source-submit', { sourceId: source.id, method: 'setData', featureCount: fallbackData?.features?.length }, perfSessionId);
         return true;
+        } finally { endPerf(); }
     };
 
     const getLatestGeoJsonUpdateState = (source) => {
@@ -710,7 +718,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
 
         const request = state.pending;
         state.pending = null;
-        state.inFlight = applyGeoJsonSourceDataUpdate(source, request.data, request.options);
+        state.inFlight = applyGeoJsonSourceDataUpdate(source, request.data, request.options, request.perfSessionId);
         return state.inFlight;
     };
 
@@ -1007,9 +1015,13 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         },
         setLayerFilter,
         setSourceData: (sourceId, data) => {
+            const endPerf = stationSelectionPerf.span('map.set-source-data', { kind: 'sync', sourceId, featureCount: data?.features?.length });
+            try {
             const source = map.getSource(sourceId);
             source?.setData?.(data);
+            if (source) stationSelectionPerf.mark('map.source-submit', { sourceId, method: 'setData', featureCount: data?.features?.length });
             return source;
+            } finally { endPerf(); }
         },
         updateGeoJsonSourceData: (sourceId, data, options = {}) => {
             const source = map.getSource(sourceId);
@@ -1018,6 +1030,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
             return source;
         },
         updateGeoJsonSourceDataLatest: (sourceId, data, options = {}) => {
+            stationSelectionPerf.mark('map.source-update-request', { sourceId, featureCount: data?.features?.length });
             const source = map.getSource(sourceId);
             if (!source) return source;
             if (!observesGeoJsonSourceReadiness) {
@@ -1026,16 +1039,20 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
             }
 
             const state = getLatestGeoJsonUpdateState(source);
-            state.pending = { data, options };
+            state.pending = { data, options, perfSessionId: stationSelectionPerf.currentId() };
             flushLatestGeoJsonSourceData(source);
             return source;
         },
         clearLineHighlightLabels,
         renderLineHighlightLabels,
         updateGeoJsonSource: (sourceId, data) => {
+            const endPerf = stationSelectionPerf.span('map.update-source', { kind: 'sync', sourceId, featureCount: data?.features?.length });
+            try {
             const source = ensureGeoJsonSource(sourceId, data);
             source?.setData?.(data || { type: 'FeatureCollection', features: [] });
+            if (source) stationSelectionPerf.mark('map.source-submit', { sourceId, method: 'setData', featureCount: data?.features?.length || 0 });
             return source;
+            } finally { endPerf(); }
         },
         createMarker: (options = {}) => new maplibregl.Marker(options),
         addMarker: (marker) => marker?.addTo?.(map),

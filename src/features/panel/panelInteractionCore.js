@@ -116,6 +116,8 @@ export const createPanelCrossFeatureBridgeController = ({
 
     return {
         applyStationToJourneyField,
+        applyTripPreviewSnapshot: (snapshot, options) => getSearchActions()?.applyTripPreviewSnapshot?.(snapshot, options),
+        fitTripPreviewSnapshot: (snapshot, options) => getSearchActions()?.fitTripPreviewSnapshot?.(snapshot, options) === true,
         clearStationSelection,
         clearTripPathPreviewBySource,
         getJourneyWaypointOptions,

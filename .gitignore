@@ -67,6 +67,7 @@ src/debug/
 !src/debug/
 src/debug/*
 !src/debug/stationOffsetPerformanceProbe.js
+!src/debug/stationSelectionPerformanceProbe.js
 
 # Local/generated basemap packages and source extracts
 tiles/*

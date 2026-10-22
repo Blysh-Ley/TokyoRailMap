@@ -172,6 +172,31 @@ assert.equal(
     ''
 );
 
+const reusableChain = [
+    tripWithRefs({
+        id: 'JR-East.Tokaido.Reuse.Weekday',
+        stationIds: ['JR-East.Tokaido.Yokohama', 'JR-East.Tokaido.Tokyo', 'JR-East.Tokaido.Tokyo'],
+        nt: ['JR-East.Utsunomiya.Reuse.Weekday']
+    }),
+    tripWithRefs({
+        id: 'JR-East.Utsunomiya.Reuse.Weekday',
+        stationIds: ['JR-East.Utsunomiya.Tokyo', 'JR-East.Utsunomiya.Ueno'],
+        pt: ['JR-East.Tokaido.Reuse.Weekday']
+    })
+];
+assert.equal(detectThroughServiceCategoryFromTrips([...reusableChain, reusableChain[0]]), 'UenoTokyo', '重复停站及重复班次对象仍参与原分类');
+reusableChain[0].nm = ['测试特殊班次'];
+assert.equal(detectThroughServiceCategoryFromTrips(reusableChain), '', '下一次调用重新读取班次标记');
+delete reusableChain[0].nm;
+reusableChain[0].nt.push('JR-East.Yamanote.Outside.Weekday');
+assert.equal(detectThroughServiceCategoryFromTrips(reusableChain), '', '下一次调用重新读取直通引用');
+reusableChain[0].nt.pop();
+reusableChain[0].tt.push({ s: 'JR-East.Yamanote.Tokyo' });
+assert.equal(detectThroughServiceCategoryFromTrips(reusableChain), '', '下一次调用重新读取停站');
+reusableChain[0].tt.pop();
+assert.equal(detectThroughServiceCategoryFromTrips(reusableChain), 'UenoTokyo', '调用内派生信息不会遗留到后续调用');
+assert.equal(detectThroughServiceCategoryFromTrips([null, {}, trip('')]), '', '空班次和空停站保持未分类');
+
 assert.equal(getMenuThroughCategoryByLineId('TokyoRail.Temp.UenoTokyo'), 'UenoTokyo');
 assert.equal(getMenuThroughCategoryByLineId('TokyoRail.MenuThrough.UenoTokyo'), 'UenoTokyo');
 assert.equal(getMenuThroughCategoryByLineId('rw-menu-through:TokyoRail.Temp.UenoTokyo'), 'UenoTokyo');
