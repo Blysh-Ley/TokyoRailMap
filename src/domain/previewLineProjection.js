@@ -1,7 +1,7 @@
 import { readLineOffsetProfile } from './lineOffsetProfile.js';
 import { buildVariableOffsetPolylinePixels } from './lineOffsetGeometry.js';
 
-export const projectStationToPreviewLineFeature = ({
+const buildPreviewLinePixels = ({
     baseCoord,
     buildOffsetPolylinePixelsWithMiter,
     feature,
@@ -23,8 +23,7 @@ export const projectStationToPreviewLineFeature = ({
     }
 
     const sourcePixels = coords.map(projectLngLatToPixelAtZoom12).filter(Boolean);
-    const basePx = projectLngLatToPixelAtZoom12(baseCoord);
-    if (!basePx || sourcePixels.length < 2) return null;
+    if (sourcePixels.length < 2) return null;
 
     const units = Number(feature?.properties?.line_offset_units);
     const resolvedZoom = Number(zoom);
@@ -34,16 +33,36 @@ export const projectStationToPreviewLineFeature = ({
     const scaleToZoom12 = Math.pow(2, 12 - (Number.isFinite(resolvedZoom) ? resolvedZoom : 12));
     const offsetPxAtZoom12 = offsetPxAtZoom * scaleToZoom12;
     const profile = readLineOffsetProfile(feature?.properties);
-    const targetPixels = profile && typeof buildOffsetPolylinePixelsWithMiter === 'function'
+    return profile && typeof buildOffsetPolylinePixelsWithMiter === 'function'
         ? buildVariableOffsetPolylinePixels(coords, profile, getLineOffsetPixelsPerUnitAtZoom(resolvedZoom) * scaleToZoom12, projectLngLatToPixelAtZoom12, buildOffsetPolylinePixelsWithMiter)
         : (offsetPxAtZoom12 && typeof buildOffsetPolylinePixelsWithMiter === 'function'
             ? buildOffsetPolylinePixelsWithMiter(sourcePixels, offsetPxAtZoom12)
             : sourcePixels);
-    if (!Array.isArray(targetPixels) || targetPixels.length < 2) return null;
+};
 
+const projectStationToLinePixels = ({ baseCoord, projectLngLatToPixelAtZoom12,
+    nearestProjectionOnPolylinePixels, unprojectPixelToLngLatAtZoom12 }, targetPixels) => {
+    if (!Array.isArray(targetPixels) || targetPixels.length < 2) return null;
+    const basePx = projectLngLatToPixelAtZoom12(baseCoord);
+    if (!basePx) return null;
     const hit = nearestProjectionOnPolylinePixels(targetPixels, basePx);
     const lngLat = hit?.point ? unprojectPixelToLngLatAtZoom12(hit.point) : null;
     return Array.isArray(lngLat) && lngLat.length >= 2 ? lngLat : null;
+};
+
+export const projectStationToPreviewLineFeature = (options = {}) => (
+    projectStationToLinePixels(options, buildPreviewLinePixels(options))
+);
+
+// 同一批站点共享线路折线；每批创建独立解析器，缩放或预览变化后自然重算。
+export const createPreviewLineProjector = (options = {}) => {
+    const pixelsByFeature = new Map();
+    return ({ baseCoord, feature } = {}) => {
+        if (!Array.isArray(baseCoord) || baseCoord.length < 2) return null;
+        const input = { ...options, baseCoord, feature };
+        if (!pixelsByFeature.has(feature)) pixelsByFeature.set(feature, buildPreviewLinePixels(input));
+        return projectStationToLinePixels(input, pixelsByFeature.get(feature));
+    };
 };
 
 export const selectNearestProjectedPreviewLineCoordinate = ({

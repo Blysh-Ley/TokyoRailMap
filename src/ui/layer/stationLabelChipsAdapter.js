@@ -1,3 +1,5 @@
+import { buildStationLabelPreviewIndex, selectStationLabelPreviewSegments } from '../../domain/stationLabelChipPreview.js';
+
 const toText = (value) => String(value ?? '').trim();
 
 const resolveBaseLabelText = (item) => {
@@ -57,6 +59,7 @@ export const createStationLabelChipsAdapter = ({
         }
 
         const servingLineIdsByStationId = buildServingLineIdsByStationId(stationLabels);
+        const previewIndex = buildStationLabelPreviewIndex({ visibleTripSelections: visibleTrips, getTransferStationIds });
         for (const item of stationLabels) {
             const el = item?.el;
             if (!el) continue;
@@ -73,7 +76,6 @@ export const createStationLabelChipsAdapter = ({
                 if (!lineSet || !lineSet.size) continue;
                 for (const lineId of lineSet) stationLineIdSet.add(toText(lineId));
             }
-            const groupedStationIdSet = new Set(groupedStationIds);
 
             if (!stationLineIdSet.size) {
                 const fallbackIds = Array.isArray(item?.servingLineIds) ? item.servingLineIds : [];
@@ -104,39 +106,9 @@ export const createStationLabelChipsAdapter = ({
                 ensureRenderLine(id);
             }
 
-            const stationMatchesGroup = (candidateStationId) => {
-                const candidateId = toText(candidateStationId);
-                if (!candidateId) return false;
-                if (groupedStationIdSet.has(candidateId)) return true;
-                const candidateTransferGroup = getTransferStationIds(candidateId);
-                if (!(candidateTransferGroup && candidateTransferGroup.size)) return false;
-                for (const gid of candidateTransferGroup) {
-                    if (groupedStationIdSet.has(toText(gid))) return true;
-                }
-                return false;
-            };
-
-            for (const entry of visibleTrips) {
-                const payload = entry?.payload || {};
-                const segs = Array.isArray(payload?.segments) ? payload.segments : [];
-                const virtualTripSegs = Array.isArray(payload?.virtualTrips)
-                    ? payload.virtualTrips.flatMap((v) => Array.isArray(v?.segments) ? v.segments : [])
-                    : [];
-                const allSegs = [...segs, ...virtualTripSegs];
-                const payloadTypeColor = toText(payload?.typeColor);
-                for (const seg of allSegs) {
-                    const segLineId = toText(seg?.r || seg?.routeLineId || seg?.lineId);
-                    if (!segLineId) continue;
-                    const segStationIds = Array.isArray(seg?.stationIds) ? seg.stationIds : [];
-                    const hitCurrentStation = segStationIds.some((stationId) => stationMatchesGroup(stationId));
-                    if (!hitCurrentStation) continue;
-
-                    const model = ensureRenderLine(segLineId);
-                    if (!model) continue;
-
-                    const typeColor = toText(seg?.typeColor || payloadTypeColor);
-                    if (typeColor) model.typeColors.push(typeColor);
-                }
+            for (const segment of selectStationLabelPreviewSegments(previewIndex, groupedStationIds)) {
+                const model = ensureRenderLine(segment.lineId);
+                if (model && segment.typeColor) model.typeColors.push(segment.typeColor);
             }
 
             if (!renderOrder.length || !showIcons) {

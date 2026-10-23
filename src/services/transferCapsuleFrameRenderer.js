@@ -38,6 +38,7 @@ export function createTransferCapsuleFrameRenderer({ getFrame, getGeometry, onRe
     let program, buffer, locations;
     let active = false;
     let records = [];
+    let projectedGeometry, projectedSourceGeometry, projectedGeometryZoom;
     let vertices = new Float32Array(0);
     const filters = new Map();
     const accepts = (style, feature) => {
@@ -95,7 +96,14 @@ export function createTransferCapsuleFrameRenderer({ getFrame, getGeometry, onRe
                             screenPoint:{x:cx+(i?1:-1)*direction[0]*shape[0],y:cy+(i?1:-1)*direction[1]*shape[0]}})),
                         renderedZoom:frame.zoom,renderer:'current-frame-capsules' });
                 };
-                const projected=projectTransferCapsuleFrameGeometry(getGeometry(),frame.zoom,{mode:frame.mode,frozenZoom:frame.frozenZoom});
+                const geometry=getGeometry();
+                const geometryZoom=frame.mode==='performance' ? frame.frozenZoom : frame.zoom;
+                if (geometry!==projectedSourceGeometry || geometryZoom!==projectedGeometryZoom) {
+                    projectedGeometry=projectTransferCapsuleFrameGeometry(geometry,frame.zoom,{mode:frame.mode,frozenZoom:frame.frozenZoom});
+                    projectedSourceGeometry=geometry;
+                    projectedGeometryZoom=geometryZoom;
+                }
+                const projected=projectedGeometry;
                 for (const group of projected) {
                     const points=new Map(group.points.map((p)=>[p.id,projectPoint(p)]));
                     const feature={type:'Feature',properties:group.properties};
@@ -124,7 +132,8 @@ export function createTransferCapsuleFrameRenderer({ getFrame, getGeometry, onRe
                 gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA); gl.drawArrays(gl.TRIANGLES,0,shapes.length*6);
             } catch(error) { active=false; records=[]; onFailure(error); }
         },
-        onRemove(_map,gl) { active=false; records=[]; if(buffer)gl.deleteBuffer(buffer); if(program)gl.deleteProgram(program); onDetach?.(); }
+        onRemove(_map,gl) { active=false; records=[]; projectedGeometry=null; projectedSourceGeometry=null;
+            if(buffer)gl.deleteBuffer(buffer); if(program)gl.deleteProgram(program); onDetach?.(); }
     };
     return {layer,isActive:()=>active,getRecords:()=>records};
 }

@@ -167,7 +167,7 @@ import {
     getLineIdFromMenuThroughSource
 } from './domain/previewSelectionPolicy.js';
 import { selectPreviewLineFeatureCandidates } from './domain/previewLineCandidates.js';
-import { selectNearestProjectedPreviewLineCoordinate } from './domain/previewLineProjection.js';
+import { createPreviewLineProjector, selectNearestProjectedPreviewLineCoordinate } from './domain/previewLineProjection.js';
 import { isMapClickSelectionAllowedByHighlight } from './domain/mapClickSelectionEligibility.js';
 import { buildPreviewVirtualStationInjection } from './domain/previewVirtualStations.js';
 import {
@@ -863,6 +863,14 @@ const initMapApp = async () => {
     const createPreviewVirtualStationCoordinateResolver = () => {
         const lineFeatures = getCurrentTripPreviewAggregateLineFeatures();
         const zoom = Number(mapEngine.getZoom());
+        const projectStationToPreviewLine = createPreviewLineProjector({
+            buildOffsetPolylinePixelsWithMiter,
+            getLineOffsetPixelsPerUnitAtZoom,
+            nearestProjectionOnPolylinePixels,
+            projectLngLatToPixelAtZoom12,
+            unprojectPixelToLngLatAtZoom12,
+            zoom
+        });
         return ({ baseCoord, source, lineId, realStationId } = {}) => {
             const candidates = selectPreviewLineFeatureCandidates({
                 lineFeatures,
@@ -874,20 +882,13 @@ const initMapApp = async () => {
                 baseCoord,
                 lineFeatures: candidates,
                 projectLngLatToPixelAtZoom12,
-                projectionOptions: {
-                    buildOffsetPolylinePixelsWithMiter,
-                    getLineOffsetPixelsPerUnitAtZoom,
-                    nearestProjectionOnPolylinePixels,
-                    projectLngLatToPixelAtZoom12,
-                    unprojectPixelToLngLatAtZoom12,
-                    zoom
-                }
+                projectStationToPreviewLine
             });
             return best || baseCoord;
         };
     };
 
-    const buildPreviewVirtualStationInjectionForCapsules = ({ stationsGeoJSON, stationGroups, visibleStationIds } = {}) => {
+    const buildPreviewVirtualStationInjectionForCapsules = ({ stationsGeoJSON, stationGroups, visibleStationIds, resolveStationCoordinate } = {}) => {
         if (!tripPreviewActive || !isMultiSelectModeEnabled()) return null;
         const entries = routeFeature?.getTripPreviewSelectionEntries?.();
         if (!Array.isArray(entries) || !entries.length) return null;
@@ -904,7 +905,7 @@ const initMapApp = async () => {
                 const id = String(lineId || '').trim();
                 return resolveRailColorForTheme(lineColorById.get(id) || '') || '';
             },
-            resolveStationCoordinate: createPreviewVirtualStationCoordinateResolver()
+            resolveStationCoordinate
         });
     };
 
@@ -5273,7 +5274,8 @@ const initMapApp = async () => {
                 const injection = buildPreviewVirtualStationInjectionForCapsules({
                     stationsGeoJSON,
                     stationGroups,
-                    visibleStationIds: options.visibleStationIds
+                    visibleStationIds: options.visibleStationIds,
+                    resolveStationCoordinate: createPreviewVirtualStationCoordinateResolver()
                 });
                 const data = buildTransferCapsuleGeoJSON(
                     injection?.stationsData || stationsGeoJSON,

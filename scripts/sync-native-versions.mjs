@@ -28,23 +28,31 @@ function replaceRequired(source, pattern, replacement, label) {
     return source.replace(pattern, replacement);
 }
 
-let androidBuild = readFileSync(androidBuildPath, 'utf8');
+// 内容未变时保留时间戳，避免预计算数据被误判为需要重新生成。
+function writeIfChanged(filePath, original, content) {
+    if (content !== original) writeFileSync(filePath, content);
+}
+
+const androidOriginal = readFileSync(androidBuildPath, 'utf8');
+let androidBuild = androidOriginal;
 androidBuild = replaceRequired(androidBuild, /versionCode\s+\d+/, `versionCode ${versionCode}`, 'Android versionCode');
 androidBuild = replaceRequired(androidBuild, /versionName\s+"[^"]+"/, `versionName "${version}"`, 'Android versionName');
-writeFileSync(androidBuildPath, androidBuild);
+writeIfChanged(androidBuildPath, androidOriginal, androidBuild);
 
-let iosProject = readFileSync(iosProjectPath, 'utf8');
+const iosOriginal = readFileSync(iosProjectPath, 'utf8');
+let iosProject = iosOriginal;
 iosProject = replaceRequired(iosProject, /MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${version};`, 'iOS MARKETING_VERSION');
 iosProject = replaceRequired(iosProject, /CURRENT_PROJECT_VERSION = [^;]+;/g, `CURRENT_PROJECT_VERSION = ${versionCode};`, 'iOS CURRENT_PROJECT_VERSION');
-writeFileSync(iosProjectPath, iosProject);
+writeIfChanged(iosProjectPath, iosOriginal, iosProject);
 
-let webVersion = readFileSync(webVersionPath, 'utf8');
+const webOriginal = readFileSync(webVersionPath, 'utf8');
+let webVersion = webOriginal;
 webVersion = replaceRequired(
     webVersion,
     /export const CURRENT_APP_VERSION = '[^']*';/,
     `export const CURRENT_APP_VERSION = '${version}';`,
     'Web CURRENT_APP_VERSION'
 );
-writeFileSync(webVersionPath, webVersion);
+writeIfChanged(webVersionPath, webOriginal, webVersion);
 
 console.log(`[version:sync:native] Web/Android/iOS versions synced to ${version} (${versionCode}).`);

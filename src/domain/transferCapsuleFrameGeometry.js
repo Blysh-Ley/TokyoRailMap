@@ -1,6 +1,6 @@
 import { createStationFrameProjection, buildStationFrameGeometry, stationFramePointToLngLat } from './stationFrameGeometry.js';
 import { selectPreviewLineFeatureCandidates } from './previewLineCandidates.js';
-import { selectNearestProjectedPreviewLineCoordinate } from './previewLineProjection.js';
+import { createPreviewLineProjector, selectNearestProjectedPreviewLineCoordinate } from './previewLineProjection.js';
 import { projectLngLatToPixelAtZoom12 } from '../map/offset.js';
 
 const WORLD = 512 * 2 ** 12;
@@ -65,13 +65,18 @@ export function buildTransferCapsuleFrameGeometry(data, stationGeometry, {
 export function projectTransferCapsuleFrameGeometry(groups, zoom, options = {}) {
     const project = createStationFrameProjection(zoom, options);
     const geometryZoom = options.mode === 'performance' ? options.frozenZoom : zoom;
+    const projectorsByOptions = new Map();
     return groups.map((group) => {
         const points = group.points.map((point) => {
             let mercator = project(point.geometry);
             if (point.virtual && point.candidates.length) {
+                if (!projectorsByOptions.has(point.previewProjectionOptions)) {
+                    projectorsByOptions.set(point.previewProjectionOptions,
+                        createPreviewLineProjector({ ...point.previewProjectionOptions, zoom: geometryZoom }));
+                }
                 const coord = selectNearestProjectedPreviewLineCoordinate({ baseCoord: stationFramePointToLngLat(project(point.baseGeometry)),
                     lineFeatures: point.candidates, projectLngLatToPixelAtZoom12,
-                    projectionOptions: { ...point.previewProjectionOptions, zoom: geometryZoom } });
+                    projectStationToPreviewLine: projectorsByOptions.get(point.previewProjectionOptions) });
                 const pixel = coord && projectLngLatToPixelAtZoom12(coord);
                 if (pixel) mercator = { x: pixel.x / WORLD, y: pixel.y / WORLD };
             }
