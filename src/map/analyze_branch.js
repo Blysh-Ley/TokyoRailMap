@@ -1420,7 +1420,7 @@ export const prewarmThroughServiceBranchAnalysis = async ({
         if (!lineId || !throughServiceCategory || !sourceLineIds.length) continue;
 
         for (const filterSpecial of [false, true]) {
-            tasks.push(analyzeBranchesForLine(lineId, {
+            tasks.push(() => analyzeBranchesForLine(lineId, {
                 throughServiceCategory,
                 sourceLineIds,
                 filterSpecial
@@ -1428,7 +1428,13 @@ export const prewarmThroughServiceBranchAnalysis = async ({
         }
     }
 
-    const results = await Promise.allSettled(tasks);
+    const results = [];
+    // 预热不抢占用户操作，每组分析之间让浏览器处理输入和绘制。
+    for (const task of tasks) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const [result] = await Promise.allSettled([task()]);
+        results.push(result);
+    }
     return {
         requested: tasks.length,
         fulfilled: results.filter((result) => result.status === 'fulfilled').length,

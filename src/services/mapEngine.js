@@ -945,6 +945,7 @@ export const createMapEngine = ({ maplibregl, container, center, zoom, style, lo
         on: (...args) => map.on(...args),
         off: (...args) => map.off(...args),
         once: (...args) => map.once(...args),
+        requestRender: () => map.triggerRepaint(),
         isLoaded: () => Boolean(map.loaded?.()),
         isStyleLoaded: () => Boolean(map.isStyleLoaded?.()),
         isSourceLoaded: (sourceId) => map.isSourceLoaded(sourceId),

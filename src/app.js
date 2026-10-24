@@ -12,6 +12,7 @@ import {
     initializeFetchCache,
     isManagedDataAssetUrl,
     preloadAllDataAssets,
+    preloadCompanyLogos,
     preloadIcons,
     registerCompanyLogoMap,
     setImageElementFromCache,
@@ -216,7 +217,22 @@ import { mountAppSettingsControls } from './app/settingsControlsRuntime.js';
 initializeFetchCache();
 installCompanyLogoFailureVisibility();
 
-try {
+// 非首屏预取逐项执行，任务之间让出主线程处理绘制和用户输入。
+const runStartupBackgroundTasks = async (tasks) => {
+    for (const task of tasks) {
+        await new Promise((resolve) => {
+            if (window.requestIdleCallback) window.requestIdleCallback(resolve, { timeout: 1000 });
+            else window.setTimeout(resolve, 0);
+        });
+        try {
+            await task();
+        } catch (error) {
+            console.warn('后台预加载失败，将在使用时按需加载', error);
+        }
+    }
+};
+
+const preloadAppIcons = () => (
     preloadIcons([
         'settings.svg',
         'list.svg',
@@ -238,18 +254,8 @@ try {
         'eye.svg',
         'eye-slash.svg',
         'lr.svg'
-    ], { concurrency: 12 }).catch(() => null);
-} catch {
-    // ignore
-}
-
-try {
-    preloadAllDataAssets({ includeTimetables: false }).catch((err) => {
-        console.warn('预加载数据失败（将回退按需加载）', err);
-    });
-} catch (err) {
-    console.warn('初始化预加载失败（将回退按需加载）', err);
-}
+    ], { concurrency: 12 })
+);
 
 // MapLibre 通过 CDN 以全局变量方式引入
 const maplibregl = window.maplibregl;
@@ -2261,7 +2267,7 @@ const initMapApp = async () => {
     }
 
 
-    registerCompanyLogoMap(companyLogoMap, { preload: true, concurrency: 8 });
+    registerCompanyLogoMap(companyLogoMap, { preload: false });
 
     const EMPTY_LINE_NAME_LABELS_DATA = { type: 'FeatureCollection', features: [] };
 
@@ -3897,18 +3903,12 @@ const initMapApp = async () => {
         generatedLinesData = linesGeoJSON;
         generatedLineNameLabelsData = applyLineNameLabelDarkColors(lineNameLabelsGeoJSON);
         generatedStationsData = stationsGeoJSON;
-        preloadPreparedStationPreviews({
-            stationFeatures: stationsGeoJSON.features,
-            profile: isManagedDataAssetUrl(DATA_URLS.stationGroups) ? 'merged-groups' : 'base-groups',
-            enabled: !new URL(window.location.href).searchParams.has('generateStationPreviews')
-        });
         generatedStationGroups = stationGroups;
         generatedRawRailways = rawRailways;
         generatedRawStations = rawStations;
         generatedAlternateLineMembership = alternateLineMembership || null;
         generatedStationOffsetAlgorithmContext = stationOffsetAlgorithmContext;
         initializeThroughServiceStationIndex({ railways: rawRailways });
-        await prewarmMenuThroughBranchAnalysis();
         transferStationIdsByStationId = await loadTransferStationIdMap();
 
         /*
@@ -5002,7 +5002,6 @@ const initMapApp = async () => {
             : loadedGeoData?.rawRailways;
         if (Array.isArray(throughServiceRailways)) {
             initializeThroughServiceStationIndex({ railways: throughServiceRailways });
-            await prewarmMenuThroughBranchAnalysis();
         }
 
 
@@ -5711,17 +5710,35 @@ const initMapApp = async () => {
     } catch (e) {
         console.error('站点加载失败', e);
     }
+
+    return [
+        preloadAppIcons,
+        () => preloadCompanyLogos(companyLogoMap, { concurrency: 8 }),
+        () => preloadAllDataAssets({ includeTimetables: false }),
+        () => preloadPreparedStationPreviews({
+            stationFeatures: generatedStationsData?.features || [],
+            profile: isManagedDataAssetUrl(DATA_URLS.stationGroups) ? 'merged-groups' : 'base-groups',
+            enabled: !new URL(window.location.href).searchParams.has('generateStationPreviews')
+        }),
+        prewarmMenuThroughBranchAnalysis
+    ];
 };
 
 bindMapStartup({
     map,
     mapEngine,
     start: async () => {
-        await initMapApp();
-        if (isMobileUiMode()) {
+        const backgroundTasks = await initMapApp();
+        if (isMobileStartupSplashEnabled()) {
             await basemapThemeRuntime.whenBasemapValidated?.();
         }
-        await mobileStartupSplashRuntime.waitForBasemapThenDismiss();
+        await mobileStartupSplashRuntime.waitForMapThenDismiss([
+            ...Object.keys(basemapThemeRuntime.getExportStyle()?.sources || {}),
+            'lines-source',
+            'stations-source',
+            STATION_LABELS_SOURCE_ID
+        ]);
+        void runStartupBackgroundTasks(backgroundTasks);
     },
     onError: (e) => {
         console.error('Map initialization failed', e);
