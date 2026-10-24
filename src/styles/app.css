@@ -4776,7 +4776,7 @@ html[data-theme="dark"] .ms-show-icon-btn {
 
 .panel-dir-triangle {
     flex: 0 0 auto;
-    font-size: 14px;
+    font-size: 20px;
     opacity: 0.75;
     pointer-events: none;
 }
