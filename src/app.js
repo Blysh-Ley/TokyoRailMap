@@ -3903,6 +3903,11 @@ const initMapApp = async () => {
         generatedLinesData = linesGeoJSON;
         generatedLineNameLabelsData = applyLineNameLabelDarkColors(lineNameLabelsGeoJSON);
         generatedStationsData = stationsGeoJSON;
+        preloadPreparedStationPreviews({
+            stationFeatures: stationsGeoJSON.features,
+            profile: isManagedDataAssetUrl(DATA_URLS.stationGroups) ? 'merged-groups' : 'base-groups',
+            enabled: false
+        });
         generatedStationGroups = stationGroups;
         generatedRawRailways = rawRailways;
         generatedRawStations = rawStations;
