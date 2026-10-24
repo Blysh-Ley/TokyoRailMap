@@ -27,6 +27,8 @@ let mainWindow;
 app.on('browser-window-created', (_event, window) => {
     if (mainWindow) return;
     mainWindow = window;
+    // 生成过程需要绘制帧推进，窗口退到后台时仍继续运行。
+    window.webContents.setBackgroundThrottling(false);
     window.webContents.on('did-finish-load', () => {
         window.webContents.executeJavaScript("localStorage.setItem('tokyorail.auto.update.check.enabled','0'); window.TokyoRailElectron?.setAutoUpdateCheckEnabled(false);");
     });
